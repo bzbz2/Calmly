@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { matchIntent, selectMoodAnimation, validateMoodText, MAX_MOOD_LENGTH } from "../../src/lib/critter/match";
-import { SCENES } from "../../src/lib/critter/catalog";
+import { FEELING_SCENES, SITUATION_SCENES } from "../../src/lib/critter/catalog";
+import { detectFeeling } from "../../src/lib/critter/match";
 
 describe("spec examples map to their scenes", () => {
   const cases: [string, string][] = [
@@ -50,23 +51,66 @@ describe("safe general fallback", () => {
   });
 });
 
-describe("selectMoodAnimation", () => {
-  test("enabled scene renders its own art", () => {
+describe("detectFeeling", () => {
+  const cases: [string, string][] = [
+    ["I'm so exhausted I can barely think", "tired"],
+    ["I feel really down today", "sad"],
+    ["I've been crying all morning", "sad"],
+    ["not feeling great honestly", "sad"],
+    ["I'm so anxious about tomorrow", "anxious"],
+    ["Can't stop overthinking everything", "anxious"],
+    ["I'm so frustrated with my roommate", "indignant"],
+    ["Everything is too much right now", "overwhelmed"],
+    ["I feel so lonely lately", "lonely"],
+    ["I miss my friends back home", "lonely"],
+    ["I'm so happy right now", "happy"],
+    ["happy but also really sad", "mixed"],
+    ["idk", "mixed"],
+  ];
+  for (const [input, feeling] of cases) test(input, () => expect(detectFeeling(input).feeling).toBe(feeling as never));
+  test("negated happiness is not happy", () => expect(detectFeeling("I'm not happy").feeling).toBe("sad"));
+  test("needing space is not loneliness", () => expect(detectFeeling("I need to be alone").feeling).not.toBe("lonely"));
+});
+
+describe("selectMoodAnimation mirrors the user's feeling", () => {
+  test("situation scene with art plays when it fits the feeling", () => {
     const s = selectMoodAnimation("I'm so done with meetings.");
     expect(s.sceneId).toBe("meeting_fatigue");
-    expect(s.comingSoon).toBe(false);
-    expect(SCENES.meeting_fatigue.captions).toContain(s.caption);
+    expect(SITUATION_SCENES.meeting_fatigue.captions.en).toContain(s.caption);
   });
-  test("disabled scene falls back to general art but keeps the matched intent and caption", () => {
+  test("situation without art mirrors its feeling, keeps the situation caption", () => {
     const s = selectMoodAnimation("I have too much to do.");
     expect(s.moodIntent).toBe("task_overload");
-    expect(s.sceneId).toBe("general");
-    expect(s.comingSoon).toBe(true);
-    expect(s.alt).toBe(SCENES.general.alt); // alt describes what is actually shown
-    expect(SCENES.task_overload.captions).toContain(s.caption);
+    expect(s.feeling).toBe("overwhelmed");
+    expect(s.sceneId).toBe("feel_overwhelmed");
+    expect(s.photoId).toBe("hamster-flat");
+    expect(SITUATION_SCENES.task_overload.captions.en).toContain(s.caption);
+  });
+  test("each spec example mirrors the right feeling", () => {
+    expect(selectMoodAnimation("People are exhausting.").sceneId).toBe("feel_tired");
+    expect(selectMoodAnimation("Nobody noticed how hard I worked.").sceneId).toBe("feel_wronged");
+    expect(selectMoodAnimation("I finally finished that task!").sceneId).toBe("feel_happy");
+  });
+  test("a conflicting feeling beats the situation scene", () => {
+    const s = selectMoodAnimation("Meetings make me so anxious");
+    expect(s.moodIntent).toBe("meeting_fatigue");
+    expect(s.sceneId).toBe("feel_anxious");
+    expect(FEELING_SCENES.anxious.captions.en).toContain(s.caption);
+  });
+  test("pure feeling with no situation", () => {
+    const s = selectMoodAnimation("I feel so lonely lately");
+    expect(s.sceneId).toBe("feel_lonely");
+    expect(FEELING_SCENES.lonely.captions.en).toContain(s.caption);
+  });
+  test("vague text mirrors 'mixed', never a comforting response scene", () => {
+    expect(selectMoodAnimation("hmm idk").sceneId).toBe("feel_mixed");
+  });
+  test("captions are in the user's voice (first person), never addressed to them", () => {
+    const all = [...Object.values(SITUATION_SCENES).flatMap((x) => x.captions.en), ...Object.values(FEELING_SCENES).flatMap((x) => x.captions.en)];
+    for (const c of all) expect(c).not.toMatch(/\byou('re|r)?\b/i);
   });
   test("variant cycles captions", () => {
-    const n = SCENES.meeting_fatigue.captions.length;
+    const n = SITUATION_SCENES.meeting_fatigue.captions.en.length;
     const a = selectMoodAnimation("meetings", { variant: 0 });
     const b = selectMoodAnimation("meetings", { variant: 1 });
     const c = selectMoodAnimation("meetings", { variant: n });

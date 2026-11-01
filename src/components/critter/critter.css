@@ -1,102 +1,255 @@
-/* Critter animations. Plain CSS keyframes on inline SVG; no animation library.
-   Rule: an element's BASE style is the scene's FINAL frame. Keyframes start from
-   the opening pose with `animation-fill-mode: both`. With reduced motion, animations
-   are removed and the punchline frame shows as a still image. */
+/* Critter card: real photo + micro-motion + tiny overlay. Plain CSS keyframes, no library.
+   Rule: an element's BASE style is the representative pose; keyframes animate from there.
+   With reduced motion, animations are removed and that pose shows as a still. */
 
-.cr-scene { display: block; overflow: visible; }
-.cr-scene * { transform-box: fill-box; }
+.cr-photo { transform: scale(1.08); transform-origin: 50% 60%; will-change: transform; }
+.cr-tint { opacity: 0; }
+.cr-overlay { overflow: visible; }
+.cr-overlay [class*="cr-"] { transform-box: fill-box; transform-origin: 50% 50%; }
+.cr-sigh { opacity: 0; }
 
-/* Shared defaults (general pose) */
-.cr-head { transform-origin: 50% 90%; }
-.cr-ear-l, .cr-ear-r { transform-origin: 50% 100%; }
-.cr-tail { transform-origin: 100% 100%; }
-.cr-mouth-flat { opacity: 0; }
-.cr-mouth-smile { opacity: 1; }
+/* shared keyframes */
+@keyframes cr-pop { 0%, 8% { opacity: 0; transform: scale(0); } 14% { opacity: 1; transform: scale(1.25); } 20%, 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes cr-blink-dot { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes cr-spin { to { transform: rotate(360deg); } }
+@keyframes cr-drip { 0% { opacity: 0; transform: translateY(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
+@keyframes cr-tremble { 0%, 100% { transform: scale(1.08) translateX(0); } 25% { transform: scale(1.08) translateX(-0.6%); } 75% { transform: scale(1.08) translateX(0.6%); } }
 
-/* ---------- meeting_fatigue (2s, plays once) ---------- */
-.cr-scene-meeting .cr-head { transform: translate(-2px, 0) rotate(-5deg); animation: cr-m-head 2s ease-in-out both; }
-.cr-scene-meeting .cr-ear-l { transform: rotate(-12deg); animation: cr-m-ear-l 2s ease-in-out both; }
-.cr-scene-meeting .cr-ear-r { transform: rotate(12deg); animation: cr-m-ear-r 2s ease-in-out both; }
-.cr-scene-meeting .cr-pupils { transform: translate(0, 0); animation: cr-m-pupils 2s ease-in-out both; }
-.cr-scene-meeting .cr-lid { transform: translateY(12px); animation: cr-m-lid 2s ease-in-out both; }
-.cr-scene-meeting .cr-mouth-smile { opacity: 0; animation: cr-fade-out 2s linear both; }
-.cr-scene-meeting .cr-mouth-flat { opacity: 1; animation: cr-fade-in 2s linear both; }
-.cr-scene-meeting .cr-tail { animation: cr-m-tail 2s ease-in-out both; }
-.cr-scene-meeting .cr-ping { transform-origin: 0% 100%; animation: cr-m-ping 2s ease-out both; }
-.cr-scene-meeting .cr-badge { transform-origin: 50% 50%; animation: cr-m-ping 2s ease-out both; }
-.cr-scene-meeting .cr-ding { opacity: 0; animation: cr-m-ding 2s ease-out both; }
+/* tired 累: slow heavy nod, dims, startles awake; z's */
+.cr-m-tired .cr-photo { animation: cr-t-nod 2.4s ease-in-out infinite; }
+.cr-m-tired .cr-tint { background: #1e1b4b; animation: cr-t-dim 2.4s ease-in-out infinite; }
+.cr-m-tired .cr-z { opacity: 0.8; animation: cr-t-z 2.4s ease-out infinite; }
+.cr-m-tired .cr-z-2 { animation-delay: 0.8s; }
+.cr-m-tired .cr-z-3 { animation-delay: 1.6s; }
+@keyframes cr-t-nod { 0%, 100% { transform: scale(1.08) translateY(0) rotate(0deg); } 55% { transform: scale(1.1) translateY(2.5%) rotate(1.2deg); } 62% { transform: scale(1.08) translateY(-1%) rotate(-0.4deg); } 72% { transform: scale(1.08) translateY(0) rotate(0deg); } }
+@keyframes cr-t-dim { 0%, 100% { opacity: 0.08; } 55% { opacity: 0.22; } 62% { opacity: 0; } }
+@keyframes cr-t-z { 0% { opacity: 0; transform: translate(0, 2px); } 30% { opacity: 0.95; } 100% { opacity: 0; transform: translate(2px, -4px); } }
 
-@keyframes cr-m-head {
-  0%, 15% { transform: translate(0, 0) rotate(0deg); }
-  20% { transform: translate(0, -4px) rotate(0deg); }
-  26%, 48% { transform: translate(0, 0) rotate(0deg); }
-  85%, 100% { transform: translate(-2px, 0) rotate(-5deg); }
-}
-@keyframes cr-m-ear-l {
-  0%, 15% { transform: rotate(0deg); }
-  20% { transform: rotate(6deg); }
-  30%, 50% { transform: rotate(0deg); }
-  85%, 100% { transform: rotate(-12deg); }
-}
-@keyframes cr-m-ear-r {
-  0%, 15% { transform: rotate(0deg); }
-  20% { transform: rotate(-6deg); }
-  30%, 50% { transform: rotate(0deg); }
-  85%, 100% { transform: rotate(12deg); }
-}
-@keyframes cr-m-pupils {
-  0%, 16% { transform: translate(0, 5px); }   /* reading the laptop */
-  22%, 42% { transform: translate(5px, -4px); } /* darts to the ping, freezes */
-  72%, 100% { transform: translate(0, 0); }   /* slowly looks at you */
-}
-@keyframes cr-m-lid {
-  0%, 48% { transform: translateY(0); }
-  88%, 100% { transform: translateY(12px); }  /* half-lidded: the knowing look */
-}
-@keyframes cr-m-tail {
-  0% { transform: rotate(0deg); }
-  5% { transform: rotate(8deg); }
-  10% { transform: rotate(-6deg); }
-  15%, 100% { transform: rotate(0deg); }       /* tail freezes with the cat */
-}
-@keyframes cr-m-ping {
-  0%, 14% { opacity: 0; transform: scale(0); }
-  21% { opacity: 1; transform: scale(1.12); }
-  27%, 100% { opacity: 1; transform: scale(1); }
-}
-@keyframes cr-m-ding {
-  0%, 15% { opacity: 0; }
-  20% { opacity: 1; }
-  40%, 100% { opacity: 0; }
-}
-@keyframes cr-fade-out { 0%, 50% { opacity: 1; } 60%, 100% { opacity: 0; } }
-@keyframes cr-fade-in { 0%, 50% { opacity: 0; } 60%, 100% { opacity: 1; } }
+/* sad 难过: slow sink, colors drain a little, rain cloud */
+.cr-m-sad .cr-photo { transform: scale(1.08) translateY(1%); animation: cr-s-sink 2.4s ease-in-out infinite; filter: saturate(0.75); }
+.cr-m-sad .cr-tint { background: #1e3a8a; opacity: 0.12; }
+.cr-m-sad .cr-cloud { animation: cr-s-cloud 2.4s ease-in-out infinite; }
+.cr-m-sad .cr-rain { animation: cr-s-rain 0.9s linear infinite; }
+.cr-m-sad .cr-rain-2 { animation-delay: 0.3s; }
+.cr-m-sad .cr-rain-3 { animation-delay: 0.6s; }
+@keyframes cr-s-sink { 0%, 100% { transform: scale(1.08) translateY(0); } 50% { transform: scale(1.09) translateY(1.6%); } }
+@keyframes cr-s-cloud { 0%, 100% { transform: translateX(-1px); } 50% { transform: translateX(1px); } }
+@keyframes cr-s-rain { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(5px); } }
 
-/* ---------- general (2.2s blink + looping steam) ---------- */
-.cr-scene-general .cr-head { transform: rotate(4deg); animation: cr-g-head 2.2s ease-in-out both; }
-.cr-scene-general .cr-lid { transform: translateY(0); animation: cr-g-blink 2.2s ease-in-out both; }
-.cr-scene-general .cr-steam { opacity: 0.6; animation: cr-g-steam 2.4s ease-in-out infinite; }
-.cr-scene-general .cr-steam-2 { animation-delay: 0.8s; }
-.cr-scene-general .cr-steam-3 { animation-delay: 1.6s; }
+/* wronged 委屈: holding it in - tiny quiver, a sniff, a drop that won't fall */
+.cr-m-wronged .cr-photo { animation: cr-w-quiver 2s ease-in-out infinite; }
+.cr-m-wronged .cr-tint { background: #60a5fa; opacity: 0.08; }
+.cr-m-wronged .cr-drop { animation: cr-w-brim 2s ease-in-out infinite; }
+@keyframes cr-w-quiver { 0%, 40%, 100% { transform: scale(1.08) translate(0, 0); } 44% { transform: scale(1.08) translate(-0.3%, 0); } 48% { transform: scale(1.08) translate(0.3%, 0); } 56% { transform: scale(1.085) translate(0, -0.8%); } 62% { transform: scale(1.08) translate(0, 0.3%); } 66% { transform: scale(1.083) translate(0, -0.5%); } 72% { transform: scale(1.08) translate(0, 0); } }
+@keyframes cr-w-brim { 0%, 40% { opacity: 0; transform: scale(0.4); } 65%, 90% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
 
-@keyframes cr-g-head {
-  0%, 30% { transform: rotate(0deg); }
-  60%, 100% { transform: rotate(4deg); }
-}
-@keyframes cr-g-blink {
-  0%, 35% { transform: translateY(0); }
-  50%, 58% { transform: translateY(28px); }   /* slow blink = "I trust you" in cat */
-  74%, 100% { transform: translateY(0); }
-}
-@keyframes cr-g-steam {
-  0% { opacity: 0; transform: translateY(4px); }
-  40% { opacity: 0.8; }
-  100% { opacity: 0; transform: translateY(-8px); }
-}
+/* jealous 吃醋: glances at the hearts, huffs away, sneaks another look; a sour green tinge */
+.cr-m-jealous .cr-photo { animation: cr-j-glance 2s ease-in-out infinite; }
+.cr-m-jealous .cr-tint { background: #a3e635; animation: cr-j-sour 2s ease-in-out infinite; }
+.cr-m-jealous .cr-hearts { animation: cr-j-hearts 1s ease-in-out infinite; }
+@keyframes cr-j-glance { 0%, 25%, 75%, 100% { transform: scale(1.1) translateX(1.5%); } 35%, 65% { transform: scale(1.1) translateX(-2%) rotate(-0.8deg); } }
+@keyframes cr-j-sour { 0%, 100% { opacity: 0.06; } 40% { opacity: 0.16; } }
+@keyframes cr-j-hearts { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+/* regret 遗憾: the balloon floats away while the photo drifts back and fades a bit */
+.cr-m-regret .cr-photo { animation: cr-g-drift 2.4s ease-in-out infinite; }
+.cr-m-regret .cr-tint { background: #475569; animation: cr-g-fade 2.4s ease-in-out infinite; }
+.cr-m-regret .cr-balloon { opacity: 0.85; transform: translate(4px, -14px); animation: cr-g-balloon 2.4s ease-in infinite; }
+@keyframes cr-g-drift { 0%, 15% { transform: scale(1.1); } 100% { transform: scale(1.05) translateY(1%); } }
+@keyframes cr-g-fade { 0%, 15% { opacity: 0; } 100% { opacity: 0.16; } }
+@keyframes cr-g-balloon { 0%, 15% { opacity: 1; transform: translate(0, 0); } 90% { opacity: 0.9; transform: translate(8px, -34px); } 100% { opacity: 0; transform: translate(9px, -38px); } }
+
+/* dejected 沮丧: one long sigh, then everything sinks and dims */
+.cr-m-dejected .cr-photo { transform: scale(1.08) translateY(2%); animation: cr-d-sigh 2.2s ease-in-out infinite; filter: saturate(0.8); }
+.cr-m-dejected .cr-tint { background: #0f172a; opacity: 0.16; animation: cr-d-dim 2.2s ease-in-out infinite; }
+.cr-m-dejected .cr-gloom { animation: cr-d-gloom 2.2s linear infinite; }
+@keyframes cr-d-sigh { 0% { transform: scale(1.08) translateY(2%); } 20% { transform: scale(1.1) translateY(-1%); } 55%, 100% { transform: scale(1.08) translateY(2%); } }
+@keyframes cr-d-dim { 0% { opacity: 0.16; } 20% { opacity: 0.04; } 55%, 100% { opacity: 0.16; } }
+@keyframes cr-d-gloom { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -7.2; } }
+
+/* forlorn 落寞: slow drift, faded color, one leaf falling */
+.cr-m-forlorn .cr-photo { animation: cr-f-drift 2.4s ease-in-out infinite alternate; filter: saturate(0.6) sepia(0.15); }
+.cr-m-forlorn .cr-leaf { transform: translate(-40px, 30px) rotate(-30deg); animation: cr-f-leaf 2.4s ease-in-out infinite; }
+@keyframes cr-f-drift { from { transform: scale(1.08) translateX(1%); } to { transform: scale(1.1) translateX(-1%); } }
+@keyframes cr-f-leaf { 0% { opacity: 0; transform: translate(0, 0) rotate(0deg); } 10% { opacity: 1; } 50% { transform: translate(-30px, 30px) rotate(-40deg); } 90% { opacity: 1; } 100% { opacity: 0; transform: translate(-70px, 62px) rotate(20deg); } }
+
+/* lonely 孤单: slowly pulls back (feeling small); a typing bubble that never sends */
+.cr-m-lonely .cr-photo { animation: cr-l-away 2.4s ease-in-out infinite; }
+.cr-m-lonely .cr-tint { background: #1e3a8a; opacity: 0.08; }
+.cr-m-lonely .cr-bubble { transform-origin: 0% 100%; animation: cr-l-bubble 2.4s ease-in-out infinite; }
+.cr-m-lonely .cr-dot { animation: cr-blink-dot 1.2s ease-in-out infinite; }
+.cr-m-lonely .cr-dot-2 { animation-delay: 0.2s; }
+.cr-m-lonely .cr-dot-3 { animation-delay: 0.4s; }
+@keyframes cr-l-away { 0% { transform: scale(1.12); } 100% { transform: scale(1.05); } }
+@keyframes cr-l-bubble { 0%, 12% { opacity: 0; transform: scale(0.6); } 22%, 58% { opacity: 1; transform: scale(1); } 72%, 100% { opacity: 0; transform: scale(0.9); } }
+
+/* indignant 愤愤不平: a "hmph" toss, anger mark throbbing */
+.cr-m-indignant .cr-photo { animation: cr-i-hmph 1.6s ease-in-out infinite; }
+.cr-m-indignant .cr-tint { background: #ef4444; opacity: 0.06; }
+.cr-m-indignant .cr-vein { animation: cr-i-vein 0.8s ease-in-out infinite; }
+@keyframes cr-i-hmph { 0%, 20%, 45%, 100% { transform: scale(1.08) rotate(0deg); } 30% { transform: scale(1.09) translateY(-1%) rotate(-1.2deg); } }
+@keyframes cr-i-vein { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+
+/* furious 暴跳如雷: stomping shake, red flashes, steam */
+.cr-m-furious .cr-photo { animation: cr-r-stomp 0.5s ease-in-out infinite; }
+.cr-m-furious .cr-tint { background: #dc2626; animation: cr-r-flash 1s ease-in-out infinite; }
+.cr-m-furious .cr-vein { animation: cr-i-vein 0.5s ease-in-out infinite; }
+.cr-m-furious .cr-steam { transform-origin: 50% 100%; animation: cr-r-steam 1s ease-out infinite; }
+.cr-m-furious .cr-steam-r { animation-delay: 0.4s; }
+@keyframes cr-r-stomp { 0%, 50%, 100% { transform: scale(1.1) translateY(0); } 25% { transform: scale(1.1) translateY(-1.5%) rotate(-0.8deg); } 75% { transform: scale(1.1) translateY(-1.5%) rotate(0.8deg); } }
+@keyframes cr-r-flash { 0%, 100% { opacity: 0.08; } 50% { opacity: 0.22; } }
+@keyframes cr-r-steam { 0%, 20% { opacity: 0; transform: translateY(2px) scale(0.5); } 45% { opacity: 0.95; } 100% { opacity: 0; transform: translateY(-6px) scale(1.3); } }
+
+/* scared 恐惧: shrinks back, trembling, darker */
+.cr-m-scared .cr-photo { animation: cr-sc-shake 0.14s linear infinite; }
+.cr-m-scared .cr-tint { background: #1e1b4b; opacity: 0.18; }
+.cr-m-scared .cr-shiver { animation: cr-sc-shiver 0.4s steps(2) infinite; }
+@keyframes cr-sc-shake { 0%, 100% { transform: scale(1.06) translateX(0); } 25% { transform: scale(1.06) translateX(-0.5%); } 75% { transform: scale(1.06) translateX(0.5%); } }
+@keyframes cr-sc-shiver { 0% { opacity: 0.9; } 100% { opacity: 0.25; } }
+
+/* anxious 忐忑不安: restless jitter, racing heart, sweat */
+.cr-m-anxious .cr-photo { animation: cr-tremble 0.22s linear infinite; }
+.cr-m-anxious .cr-thump { animation: cr-a-thump 0.8s ease-out infinite; }
+.cr-m-anxious .cr-drop { animation: cr-drip 1.6s ease-in infinite; }
+@keyframes cr-a-thump { 0%, 40%, 100% { transform: scale(1); } 10% { transform: scale(1.3); } 25% { transform: scale(1.12); } }
+
+/* on_edge 提心吊胆: tense slow push-in, a weight swinging overhead, a flinch */
+.cr-m-on_edge .cr-photo { animation: cr-e-tense 2s ease-in-out infinite; }
+.cr-m-on_edge .cr-weight { transform-origin: 50% 0%; transform: rotate(8deg); animation: cr-e-swing 2s ease-in-out infinite; }
+@keyframes cr-e-tense { 0%, 20%, 35%, 70%, 85%, 100% { transform: scale(1.1); } 26% { transform: scale(1.08) translateY(1.2%); } 76% { transform: scale(1.08) translateY(1.2%); } }
+@keyframes cr-e-swing { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+
+/* shocked 大惊失色: punch-in, color drains out (失色), "!" */
+.cr-m-shocked .cr-photo { transform: scale(1.14); filter: saturate(0.15) brightness(1.08); animation: cr-x-punch 2s ease-out infinite; }
+.cr-m-shocked .cr-bang { transform-origin: 50% 100%; animation: cr-pop 2s ease-out infinite; }
+@keyframes cr-x-punch { 0%, 8% { transform: scale(1.06); filter: none; } 13% { transform: scale(1.16); } 20% { transform: scale(1.14); } 30%, 100% { transform: scale(1.14); filter: saturate(0.15) brightness(1.08); } }
+
+/* stunned 目瞪口呆: completely frozen, slow zoom-in, "..." */
+.cr-m-stunned .cr-photo { animation: cr-n-zoom 2.4s linear infinite; }
+.cr-m-stunned .cr-dot { opacity: 0; animation: cr-n-dots 2.4s ease-out infinite; }
+.cr-m-stunned .cr-dot-2 { animation-delay: 0.3s; }
+.cr-m-stunned .cr-dot-3 { animation-delay: 0.6s; }
+@keyframes cr-n-zoom { 0% { transform: scale(1.06); } 100% { transform: scale(1.14); } }
+@keyframes cr-n-dots { 0%, 15% { opacity: 0; } 25%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* surprised 诧异: a little jolt back, "!" */
+.cr-m-surprised .cr-photo { animation: cr-u-jolt 2s ease-out infinite; }
+.cr-m-surprised .cr-bang { transform-origin: 50% 100%; animation: cr-pop 2s ease-out infinite; }
+@keyframes cr-u-jolt { 0%, 6% { transform: scale(1.08); } 12% { transform: scale(1.05) translateY(-1.5%); } 24%, 100% { transform: scale(1.07); } }
+
+/* baffled 莫名其妙: head tilt one way, then the other; "?" */
+.cr-m-baffled .cr-photo { animation: cr-b-tilt 2s ease-in-out infinite; }
+.cr-m-baffled .cr-q { transform-origin: 50% 100%; animation: cr-pop 2s ease-out infinite; }
+.cr-m-baffled .cr-q-2 { animation-delay: 1s; }
+@keyframes cr-b-tilt { 0%, 15%, 85%, 100% { transform: scale(1.12) rotate(-2.5deg); } 35%, 65% { transform: scale(1.12) rotate(2.5deg); } }
+
+/* confused 迷茫: slow look left and right through drifting fog */
+.cr-m-confused .cr-photo { animation: cr-c-pan 2.4s ease-in-out infinite; filter: saturate(0.85); }
+.cr-m-confused .cr-fog-1 { animation: cr-c-fog 2.4s ease-in-out infinite; }
+.cr-m-confused .cr-fog-2 { animation: cr-c-fog 2.4s ease-in-out infinite reverse; }
+.cr-m-confused .cr-q { animation: cr-blink-dot 2.4s ease-in-out infinite; }
+@keyframes cr-c-pan { 0%, 15%, 85%, 100% { transform: scale(1.1) translateX(-1.5%); } 40%, 60% { transform: scale(1.1) translateX(1.5%); } }
+@keyframes cr-c-fog { 0%, 100% { transform: translateX(-6px); } 50% { transform: translateX(6px); } }
+
+/* disgusted 嫌弃: recoils away, green tinge, stink lines */
+.cr-m-disgusted .cr-photo { animation: cr-g-recoil 2s ease-in-out infinite; }
+.cr-m-disgusted .cr-tint { background: #84cc16; opacity: 0.08; }
+.cr-m-disgusted .cr-stink path { animation: cr-g-stink 1.2s ease-out infinite; }
+.cr-m-disgusted .cr-stink-2 { animation-delay: 0.4s !important; }
+.cr-m-disgusted .cr-stink-3 { animation-delay: 0.8s !important; }
+@keyframes cr-g-recoil { 0%, 25%, 100% { transform: scale(1.1) translateX(0); } 40%, 60% { transform: scale(1.08) translateX(2%) rotate(1.2deg); } }
+@keyframes cr-g-stink { 0% { opacity: 0; transform: translateY(2px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(-3px); } }
+
+/* overwhelmed 压力山大: wobbling under a rain of papers */
+.cr-m-overwhelmed .cr-photo { animation: cr-o-wobble 1.8s ease-in-out infinite; }
+.cr-m-overwhelmed .cr-paper { animation: cr-o-fall 1.8s linear infinite; }
+.cr-m-overwhelmed .cr-paper-0 { transform: translateY(60px) rotate(-12deg); }
+.cr-m-overwhelmed .cr-paper-1 { transform: translateY(30px) rotate(10deg); animation-delay: 0.45s; }
+.cr-m-overwhelmed .cr-paper-2 { transform: translateY(45px) rotate(-8deg); animation-delay: 0.9s; }
+.cr-m-overwhelmed .cr-paper-3 { transform: translateY(15px) rotate(14deg); animation-delay: 1.35s; }
+@keyframes cr-o-wobble { 0%, 100% { transform: scale(1.1) rotate(-0.8deg) translateY(0.5%); } 50% { transform: scale(1.1) rotate(0.8deg) translateY(1%); } }
+@keyframes cr-o-fall { 0% { transform: translateY(0) rotate(0deg); } 100% { transform: translateY(115px) rotate(40deg); } }
+
+/* torn 患得患失: tilts between hopeful (warm) and worried (cool); petals drop */
+.cr-m-torn .cr-photo { animation: cr-n-sway 2s ease-in-out infinite; }
+.cr-m-torn .cr-tint { animation: cr-n-mood 2s steps(1) infinite; }
+.cr-m-torn .cr-petal { opacity: 0; animation: cr-n-petal 2s ease-in infinite; }
+.cr-m-torn .cr-petal-2 { animation-delay: 1s; }
+@keyframes cr-n-sway { 0%, 40%, 100% { transform: scale(1.1) rotate(1deg); } 55%, 90% { transform: scale(1.1) rotate(-1deg) translateY(0.6%); } }
+@keyframes cr-n-mood { 0% { background: #f59e0b; opacity: 0.08; } 50% { background: #1e40af; opacity: 0.12; } }
+@keyframes cr-n-petal { 0%, 5% { opacity: 0; transform: translate(0, 0) rotate(0deg); } 12% { opacity: 1; } 70% { opacity: 0; transform: translate(-4px, 34px) rotate(160deg); } 100% { opacity: 0; } }
+
+/* wistful 留恋: slow warm push-in, soft golden glow */
+.cr-m-wistful .cr-photo { animation: cr-w-push 2.4s ease-in-out infinite alternate; filter: sepia(0.25) saturate(0.95); }
+.cr-m-wistful .cr-flare { animation: cr-w-glow 2.4s ease-in-out infinite; }
+@keyframes cr-w-push { from { transform: scale(1.06); } to { transform: scale(1.12); } }
+@keyframes cr-w-glow { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
+
+/* bored 百无聊赖: barely moving, a fly looping, a slow sigh */
+.cr-m-bored .cr-photo { animation: cr-o-sway 2.4s ease-in-out infinite; filter: saturate(0.85); }
+.cr-m-bored .cr-fly { animation: cr-spin 1s linear infinite; }
+.cr-m-bored .cr-wing { transform-origin: 50% 100%; animation: cr-o-wing 0.08s linear infinite; }
+@keyframes cr-o-sway { 0%, 100% { transform: scale(1.08) translateX(-0.5%); } 50% { transform: scale(1.08) translateX(0.5%) translateY(0.4%); } }
+@keyframes cr-o-wing { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.3); } }
+
+/* relieved 释怀: a long exhale (in, then out), brightening; a butterfly let go */
+.cr-m-relieved .cr-photo { animation: cr-v-breath 2.4s ease-in-out infinite; }
+.cr-m-relieved .cr-tint { background: #fff7ed; animation: cr-v-bright 2.4s ease-in-out infinite; }
+.cr-m-relieved .cr-butterfly { opacity: 0.9; transform: translate(20px, -40px); animation: cr-v-fly 2.4s ease-in-out infinite; }
+.cr-m-relieved .cr-wing-l { transform-origin: 100% 50%; animation: cr-v-flap 0.25s ease-in-out infinite; }
+.cr-m-relieved .cr-wing-r { transform-origin: 0% 50%; animation: cr-v-flap 0.25s ease-in-out infinite; }
+@keyframes cr-v-breath { 0%, 100% { transform: scale(1.08); } 25% { transform: scale(1.11); } 60% { transform: scale(1.06) translateY(0.4%); } }
+@keyframes cr-v-bright { 0%, 25% { opacity: 0; } 60% { opacity: 0.14; } 100% { opacity: 0; } }
+@keyframes cr-v-fly { 0%, 15% { opacity: 0; transform: translate(0, 0) scale(0.7); } 25% { opacity: 1; transform: translate(2px, -4px) scale(1); } 90% { opacity: 1; transform: translate(34px, -56px) scale(0.9); } 100% { opacity: 0; transform: translate(36px, -60px) scale(0.8); } }
+@keyframes cr-v-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.35); } }
+
+/* calm 心如止水: nothing but a slow breath */
+.cr-m-calm .cr-photo { animation: cr-k-breath 2.4s ease-in-out infinite; }
+@keyframes cr-k-breath { 0%, 100% { transform: scale(1.08); } 50% { transform: scale(1.1); } }
+
+/* relaxed 松弛: lazy sway in the sun */
+.cr-m-relaxed .cr-photo { animation: cr-y-sway 2.4s ease-in-out infinite; filter: saturate(1.05) brightness(1.03); }
+.cr-m-relaxed .cr-tint { background: #fde68a; opacity: 0.1; }
+.cr-m-relaxed .cr-sun { animation: cr-spin 8s linear infinite; }
+.cr-m-relaxed .cr-tilde { animation: cr-y-tilde 2.4s ease-out infinite; }
+@keyframes cr-y-sway { 0%, 100% { transform: scale(1.09) rotate(-0.8deg); } 50% { transform: scale(1.09) rotate(0.8deg) translateY(0.5%); } }
+@keyframes cr-y-tilde { 0% { opacity: 0; transform: translateY(2px); } 40% { opacity: 0.95; } 100% { opacity: 0; transform: translateY(-4px); } }
+
+/* happy 开心: gentle happy bounce, sparkles */
+.cr-m-happy .cr-photo { animation: cr-h-bounce 1.8s ease-in-out infinite; filter: saturate(1.08); }
+.cr-m-happy .cr-sparkle { animation: cr-h-twinkle 1.8s ease-in-out infinite; }
+.cr-m-happy .cr-sparkle-2 { animation-delay: 0.6s; }
+.cr-m-happy .cr-sparkle-3 { animation-delay: 1.2s; }
+@keyframes cr-h-bounce { 0%, 100% { transform: scale(1.08) rotate(-0.5deg); } 50% { transform: scale(1.09) translateY(-1.2%) rotate(0.5deg); } }
+@keyframes cr-h-twinkle { 0%, 100% { opacity: 0.3; transform: scale(0.5) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(20deg); } }
+
+/* elated 手舞足蹈: bouncing side to side, notes and confetti */
+.cr-m-elated .cr-photo { animation: cr-el-hop 0.9s ease-in-out infinite; filter: saturate(1.12); }
+.cr-m-elated .cr-note { animation: cr-el-note 0.9s ease-out infinite; }
+.cr-m-elated .cr-note-2 { animation-delay: 0.45s; }
+.cr-m-elated .cr-confetti { animation: cr-el-confetti 1.6s linear infinite; }
+.cr-m-elated .cr-confetti-1 { animation-delay: 0.4s; }
+.cr-m-elated .cr-confetti-2 { animation-delay: 0.8s; }
+.cr-m-elated .cr-confetti-3 { animation-delay: 1.2s; }
+@keyframes cr-el-hop { 0%, 50%, 100% { transform: scale(1.1) translateY(0); } 25% { transform: scale(1.1) translateY(-2.5%) rotate(-1.2deg); } 75% { transform: scale(1.1) translateY(-2.5%) rotate(1.2deg); } }
+@keyframes cr-el-note { 0% { opacity: 0; transform: translate(0, 2px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(2px, -5px); } }
+@keyframes cr-el-confetti { 0% { transform: translateY(0) rotate(0deg); } 100% { transform: translateY(110px) rotate(360deg); } }
+
+/* mixed 五味杂陈: slow drift, a tangled thought */
+.cr-m-mixed .cr-photo { animation: cr-f-drift 2.4s ease-in-out infinite alternate; }
+.cr-m-mixed .cr-scribble { stroke-dasharray: 1; animation: cr-x-draw 2.4s ease-in-out infinite; }
+@keyframes cr-x-draw { 0% { stroke-dashoffset: 1; } 60%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -1; } }
+
+/* meeting fatigue: "Quick sync?" pops in, then a slow, unimpressed push-in (plays once) */
+.cr-m-meeting .cr-photo { transform: scale(1.14); animation: cr-mt-stare 2s ease-in-out both; }
+.cr-m-meeting .cr-ping { transform-origin: 100% 0%; animation: cr-mt-ping 2s ease-out both; }
+.cr-m-meeting .cr-badge { animation: cr-mt-ping 2s ease-out both; }
+@keyframes cr-mt-stare { 0%, 20% { transform: scale(1.06); } 26%, 45% { transform: scale(1.07) translateY(-0.6%); } 100% { transform: scale(1.14); } }
+@keyframes cr-mt-ping { 0%, 14% { opacity: 0; transform: scale(0); } 21% { opacity: 1; transform: scale(1.12); } 27%, 100% { opacity: 1; transform: scale(1); } }
 
 /* ---------- controls / accessibility ---------- */
-.cr-paused * { animation-play-state: paused !important; }
+.cr-paused, .cr-paused * { animation-play-state: paused !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cr-stage * { animation: none !important; }
+  .cr-card, .cr-card * { animation: none !important; }
 }
