@@ -4,6 +4,7 @@ import { AIMessage, BaseMessage, SystemMessage, HumanMessage } from "@langchain/
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { buildTools } from "./tools";
+import { CRISIS_MESSAGE } from "../safety";
 
 export const moodSchema = z.object({
   score: z.number().min(1).max(10).describe("Overall mood valence: 1 = very low/distressed, 5 = neutral, 10 = great"),
@@ -18,14 +19,7 @@ const riskSchema = z.object({
   risk: z.enum(["none", "elevated", "high"]).describe("high = explicit self-harm/suicidal intent, plan, or immediate danger; elevated = hopelessness or passive ideation; none otherwise"),
 });
 
-export const CRISIS_MESSAGE = `I'm really glad you told me this, and I'm concerned about how much pain you're in. You deserve support from a real person right now.
-
-• **In the US:** call or text **988** (Suicide & Crisis Lifeline), available 24/7.
-• **Crisis Text Line:** text **HOME** to **741741**.
-• **Outside the US:** find a local line at https://findahelpline.com
-• If you're in immediate danger, call your local emergency number.
-
-If you can, reach out to someone you trust and tell them how you're feeling. I'm still here to talk with you, and I'm not a substitute for professional help.`;
+export { CRISIS_MESSAGE };
 
 const State = Annotation.Root({
   messages: Annotation<BaseMessage[]>({ reducer: messagesStateReducer, default: () => [] }),

@@ -1,0 +1,102 @@
+/* Critter animations. Plain CSS keyframes on inline SVG; no animation library.
+   Rule: an element's BASE style is the scene's FINAL frame. Keyframes start from
+   the opening pose with `animation-fill-mode: both`. With reduced motion, animations
+   are removed and the punchline frame shows as a still image. */
+
+.cr-scene { display: block; overflow: visible; }
+.cr-scene * { transform-box: fill-box; }
+
+/* Shared defaults (general pose) */
+.cr-head { transform-origin: 50% 90%; }
+.cr-ear-l, .cr-ear-r { transform-origin: 50% 100%; }
+.cr-tail { transform-origin: 100% 100%; }
+.cr-mouth-flat { opacity: 0; }
+.cr-mouth-smile { opacity: 1; }
+
+/* ---------- meeting_fatigue (2s, plays once) ---------- */
+.cr-scene-meeting .cr-head { transform: translate(-2px, 0) rotate(-5deg); animation: cr-m-head 2s ease-in-out both; }
+.cr-scene-meeting .cr-ear-l { transform: rotate(-12deg); animation: cr-m-ear-l 2s ease-in-out both; }
+.cr-scene-meeting .cr-ear-r { transform: rotate(12deg); animation: cr-m-ear-r 2s ease-in-out both; }
+.cr-scene-meeting .cr-pupils { transform: translate(0, 0); animation: cr-m-pupils 2s ease-in-out both; }
+.cr-scene-meeting .cr-lid { transform: translateY(12px); animation: cr-m-lid 2s ease-in-out both; }
+.cr-scene-meeting .cr-mouth-smile { opacity: 0; animation: cr-fade-out 2s linear both; }
+.cr-scene-meeting .cr-mouth-flat { opacity: 1; animation: cr-fade-in 2s linear both; }
+.cr-scene-meeting .cr-tail { animation: cr-m-tail 2s ease-in-out both; }
+.cr-scene-meeting .cr-ping { transform-origin: 0% 100%; animation: cr-m-ping 2s ease-out both; }
+.cr-scene-meeting .cr-badge { transform-origin: 50% 50%; animation: cr-m-ping 2s ease-out both; }
+.cr-scene-meeting .cr-ding { opacity: 0; animation: cr-m-ding 2s ease-out both; }
+
+@keyframes cr-m-head {
+  0%, 15% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(0, -4px) rotate(0deg); }
+  26%, 48% { transform: translate(0, 0) rotate(0deg); }
+  85%, 100% { transform: translate(-2px, 0) rotate(-5deg); }
+}
+@keyframes cr-m-ear-l {
+  0%, 15% { transform: rotate(0deg); }
+  20% { transform: rotate(6deg); }
+  30%, 50% { transform: rotate(0deg); }
+  85%, 100% { transform: rotate(-12deg); }
+}
+@keyframes cr-m-ear-r {
+  0%, 15% { transform: rotate(0deg); }
+  20% { transform: rotate(-6deg); }
+  30%, 50% { transform: rotate(0deg); }
+  85%, 100% { transform: rotate(12deg); }
+}
+@keyframes cr-m-pupils {
+  0%, 16% { transform: translate(0, 5px); }   /* reading the laptop */
+  22%, 42% { transform: translate(5px, -4px); } /* darts to the ping, freezes */
+  72%, 100% { transform: translate(0, 0); }   /* slowly looks at you */
+}
+@keyframes cr-m-lid {
+  0%, 48% { transform: translateY(0); }
+  88%, 100% { transform: translateY(12px); }  /* half-lidded: the knowing look */
+}
+@keyframes cr-m-tail {
+  0% { transform: rotate(0deg); }
+  5% { transform: rotate(8deg); }
+  10% { transform: rotate(-6deg); }
+  15%, 100% { transform: rotate(0deg); }       /* tail freezes with the cat */
+}
+@keyframes cr-m-ping {
+  0%, 14% { opacity: 0; transform: scale(0); }
+  21% { opacity: 1; transform: scale(1.12); }
+  27%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes cr-m-ding {
+  0%, 15% { opacity: 0; }
+  20% { opacity: 1; }
+  40%, 100% { opacity: 0; }
+}
+@keyframes cr-fade-out { 0%, 50% { opacity: 1; } 60%, 100% { opacity: 0; } }
+@keyframes cr-fade-in { 0%, 50% { opacity: 0; } 60%, 100% { opacity: 1; } }
+
+/* ---------- general (2.2s blink + looping steam) ---------- */
+.cr-scene-general .cr-head { transform: rotate(4deg); animation: cr-g-head 2.2s ease-in-out both; }
+.cr-scene-general .cr-lid { transform: translateY(0); animation: cr-g-blink 2.2s ease-in-out both; }
+.cr-scene-general .cr-steam { opacity: 0.6; animation: cr-g-steam 2.4s ease-in-out infinite; }
+.cr-scene-general .cr-steam-2 { animation-delay: 0.8s; }
+.cr-scene-general .cr-steam-3 { animation-delay: 1.6s; }
+
+@keyframes cr-g-head {
+  0%, 30% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(4deg); }
+}
+@keyframes cr-g-blink {
+  0%, 35% { transform: translateY(0); }
+  50%, 58% { transform: translateY(28px); }   /* slow blink = "I trust you" in cat */
+  74%, 100% { transform: translateY(0); }
+}
+@keyframes cr-g-steam {
+  0% { opacity: 0; transform: translateY(4px); }
+  40% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ---------- controls / accessibility ---------- */
+.cr-paused * { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-stage * { animation: none !important; }
+}

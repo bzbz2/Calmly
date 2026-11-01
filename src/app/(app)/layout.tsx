@@ -7,10 +7,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session?.user) redirect("/login");
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4">
-      <header className="flex items-center justify-between py-4">
-        <span className="text-lg font-semibold">🌿 Calmly</span>
-        <nav className="flex items-center gap-4 text-sm">
+      <header className="flex items-center justify-between gap-3 py-4">
+        <span className="whitespace-nowrap text-base font-semibold sm:text-lg">🌿 Calmly</span>
+        <nav className="flex items-center gap-2.5 whitespace-nowrap text-xs sm:gap-4 sm:text-sm">
           <Link href="/chat" className="hover:underline">Chat</Link>
+          <Link href="/critter" className="hover:underline">Critter</Link>
           <Link href="/mood" className="hover:underline">My mood</Link>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
             <button className="text-slate-500 hover:underline">Log out</button>

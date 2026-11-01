@@ -60,9 +60,13 @@ export async function runChat(opts: { userId: string; userName: string; conversa
 
   const reply = result.reply || "I'm here with you. Tell me more?";
 
+  const crisis = result.risk === "high";
+  // Explicit timestamps keep user/assistant ordering stable within a batch insert.
+  const now = Date.now();
+
   await db.insert(messages).values([
-    { conversationId, userId, role: "user", content: text },
-    { conversationId, userId, role: "assistant", content: reply },
+    { conversationId, userId, role: "user", content: text, createdAt: new Date(now) },
+    { conversationId, userId, role: "assistant", content: reply, createdAt: new Date(now + 1) },
   ]);
 
   let mood = null;
@@ -81,7 +85,7 @@ export async function runChat(opts: { userId: string; userName: string; conversa
       .onConflictDoUpdate({ target: profiles.userId, set: { summary: result.newMemory, updatedAt: new Date() } });
   }
 
-  return { conversationId, reply, mood, crisis: result.risk === "high" };
+  return { conversationId, reply, mood, crisis };
 }
 
 export async function loadConversation(userId: string, conversationId: string) {

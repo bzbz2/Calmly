@@ -61,7 +61,12 @@ export default function Chat({ name }: { name: string }) {
       <section className="flex flex-1 flex-col rounded-2xl bg-white/80 shadow-sm ring-1 ring-slate-200">
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {msgs.length === 0 && (
-            <p className="mt-16 text-center text-slate-500">Hi{name ? ` ${name}` : ""} 👋 How was your day? Tell me whatever is on your mind.</p>
+            <div className="mt-16 space-y-2 text-center text-slate-500">
+              <p>Hi{name ? ` ${name}` : ""} 👋 How was your day? Tell me whatever is on your mind.</p>
+              <p className="text-sm">
+                Not up for talking? <a href="/critter" className="text-indigo-600 underline">Express with a critter</a>
+              </p>
+            </div>
           )}
           {msgs.map((m, i) => (
             <div key={m.id ?? i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
