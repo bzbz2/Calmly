@@ -247,9 +247,13 @@
 @keyframes cr-mt-stare { 0%, 20% { transform: scale(1.06); } 26%, 45% { transform: scale(1.07) translateY(-0.6%); } 100% { transform: scale(1.14); } }
 @keyframes cr-mt-ping { 0%, 14% { opacity: 0; transform: scale(0); } 21% { opacity: 1; transform: scale(1.12); } 27%, 100% { opacity: 1; transform: scale(1); } }
 
+/* buddy update: the card fades in when the mood changes */
+.cr-enter { animation: cr-enter 0.45s ease-out both; }
+@keyframes cr-enter { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+
 /* ---------- controls / accessibility ---------- */
 .cr-paused, .cr-paused * { animation-play-state: paused !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cr-card, .cr-card * { animation: none !important; }
+  .cr-card, .cr-card *, .cr-enter { animation: none !important; }
 }

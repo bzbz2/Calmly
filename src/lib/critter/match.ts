@@ -302,6 +302,11 @@ export function detectFeeling(text: string): { feeling: Feeling; score: number }
   return { feeling: tied[0], score: top };
 }
 
+/** True when a message clearly expresses a feeling or a known situation (not just "ok" or a question). */
+export function hasMoodSignal(text: string): boolean {
+  return detectFeeling(text).score >= MIN_SCORE || matchIntent(text).intent !== "general";
+}
+
 // ---------------- selection ----------------
 
 export type AnimationSelection = {

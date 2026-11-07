@@ -1,27 +1,28 @@
 "use client";
 import "./critter.css";
 import { useState } from "react";
-import { sessionSelection } from "@/lib/critter/session";
+import { sessionMood, sessionSelection, type SessionMessage } from "@/lib/critter/session";
 import { nextPhoto, photo, photoSrc, needsCredit, type PhotoId } from "@/lib/critter/photos";
 import { CritterStage, motionOf } from "./CritterStage";
 
-// The session's mood buddy: one photo per chat, chosen from the first message.
+// The session's mood buddy. It follows the user's latest clear mood (see sessionMood).
 // "sidebar" = full card pinned to the bottom of the chat history (desktop).
 // "inline"  = compact row above the messages (mobile, where the sidebar is hidden).
-// Give it key={firstUser} so swapping photo/caption resets per session.
+// Key it by the mood's source message so photo/caption swaps reset when the mood
+// changes, and the card fades in to show the update.
 
 const UI = {
   en: { title: "How you're feeling", replay: "Replay", pause: "Pause", play: "Play", photo: "Another photo", caption: "Another caption" },
   zh: { title: "此刻的你", replay: "重播", pause: "暂停", play: "播放", photo: "换张照片", caption: "换句话" },
 } as const;
 
-export function SessionBuddy({ firstUser, firstReply, layout }: { firstUser?: string; firstReply?: string; layout: "sidebar" | "inline" }) {
+export function SessionBuddy({ msgs, layout }: { msgs: SessionMessage[]; layout: "sidebar" | "inline" }) {
   const [variant, setVariant] = useState(0);
   const [photoId, setPhotoId] = useState<PhotoId | null>(null);
   const [playKey, setPlayKey] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  const sel = sessionSelection(firstUser, { variant, firstReply });
+  const sel = sessionMood(msgs, { variant })?.selection;
   if (!sel) return null;
 
   const pid = photoId ?? sel.photoId;
@@ -33,7 +34,7 @@ export function SessionBuddy({ firstUser, firstReply, layout }: { firstUser?: st
   if (layout === "inline") {
     const p = photo(pid);
     return (
-      <div className="flex items-center gap-3 rounded-2xl bg-white/90 p-2 pr-3 ring-1 ring-slate-200" aria-live="polite">
+      <div className="cr-enter flex items-center gap-3 rounded-2xl bg-white/90 p-2 pr-3 ring-1 ring-slate-200" aria-live="polite">
         <button type="button" onClick={swapPhoto} aria-label={t.photo} title={t.photo} className={`cr-card cr-m-${motionOf(sel.sceneId)} relative h-14 w-14 shrink-0 overflow-hidden rounded-xl`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- small static JPEG; motion is CSS */}
           <img src={photoSrc(pid)} alt={p.alt} className="cr-photo h-full w-full object-cover" style={{ objectPosition: p.pos ?? "50% 40%" }} />
@@ -52,7 +53,7 @@ export function SessionBuddy({ firstUser, firstReply, layout }: { firstUser?: st
 
   const icon = "flex h-7 w-7 items-center justify-center rounded-full text-[13px] text-slate-500 ring-1 ring-slate-200 hover:bg-white";
   return (
-    <section aria-label={t.title} aria-live="polite" className="space-y-2 border-t border-slate-200 pt-3" lang={sel.lang}>
+    <section aria-label={t.title} aria-live="polite" className="cr-enter space-y-2 border-t border-slate-200 pt-3" lang={sel.lang}>
       <p className="px-1 text-[11px] font-medium tracking-wide text-slate-400">{t.title}</p>
       <CritterStage sceneId={sel.sceneId} photoId={pid} caption={sel.caption} label={sel.feelingLabel} lang={sel.lang} playKey={playKey} paused={paused} />
       <div className="flex justify-center gap-1.5">
@@ -65,13 +66,16 @@ export function SessionBuddy({ firstUser, firstReply, layout }: { firstUser?: st
   );
 }
 
-/** Tiny per-session thumbnail for the chat history list (from the conversation title). */
-export function SessionThumb({ title }: { title: string }) {
-  const sel = sessionSelection(title);
-  if (!sel) return <span className="h-6 w-6 shrink-0 rounded-md bg-slate-200" aria-hidden="true" />;
-  const p = photo(sel.photoId);
+/**
+ * Tiny per-session thumbnail for the chat history list. Uses the conversation title
+ * (its opening line), or `photoId` for the open chat so it matches the live buddy.
+ */
+export function SessionThumb({ title, photoId }: { title: string; photoId?: PhotoId | null }) {
+  const id = photoId === undefined ? sessionSelection(title)?.photoId : photoId;
+  if (!id) return <span className="h-6 w-6 shrink-0 rounded-md bg-slate-200" aria-hidden="true" />;
+  const p = photo(id);
   return (
     // eslint-disable-next-line @next/next/no-img-element -- decorative 24px thumbnail
-    <img src={photoSrc(sel.photoId)} alt="" aria-hidden="true" className="h-6 w-6 shrink-0 rounded-md object-cover" style={{ objectPosition: p.pos ?? "50% 40%" }} />
+    <img src={photoSrc(id)} alt="" aria-hidden="true" className="h-6 w-6 shrink-0 rounded-md object-cover" style={{ objectPosition: p.pos ?? "50% 40%" }} />
   );
 }

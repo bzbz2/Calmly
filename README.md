@@ -18,10 +18,19 @@ START → crisisCheck → moodExtract → (high risk ? crisisResponse : responde
 - Moods saved per message to `mood_entries`, charted on `/mood`.
 
 ## Mood buddy (in chat)
-Each chat session gets **one** mood buddy, picked from the session's **first** message: a real animal photo with a 1-2s micro-motion and a tiny overlay, plus a short first-person caption laid over the photo ("明明不是我的错，却要我来扛。"). It sits at the bottom of the chat-history sidebar (on mobile, a compact row above the messages), and every conversation in the history list shows its buddy as a small thumbnail. The caption, feeling label and buttons follow the input language. The buddy mirrors how you feel; it never responds to you or tries to comfort you. Calmly's reply does that.
+Each chat session has a mood buddy that **follows the user's latest clear mood**: a real animal photo with a 1-2s micro-motion and a tiny overlay, plus a short first-person caption laid over the photo ("明明不是我的错，却要我来扛。"). It sits at the bottom of the chat-history sidebar (on mobile, a compact row above the messages). When a new message expresses a different feeling, the card fades in with the new photo. Neutral follow-ups ("ok", "what should I do?") keep the current buddy. The open chat's history thumbnail matches the live buddy; other chats show a thumbnail from their opening line. The caption, feeling label and buttons follow the input language. The buddy mirrors how you feel; it never responds to you or tries to comfort you. Calmly's reply does that.
 
-- **Session rule** (`src/lib/critter/session.ts`): `sessionSelection(firstUserMessage)` is pure and deterministic, so nothing extra is stored. Reopening a conversation recomputes the same buddy from history, and later messages never change it. No buddy appears if the opening trips the crisis pre-screen or the agent replied with the crisis message.
+- **Session rule** (`src/lib/critter/session.ts`): `sessionMood(messages)` walks user messages from newest to oldest and uses the first one with a clear signal (`hasMoodSignal`: a feeling score above threshold or a known situation). If no message has a clear signal, it falls back to the first message. It is pure and deterministic, so nothing extra is stored and reopening a conversation recomputes the same buddy. Safety: a crisis message (keyword pre-screen, or the agent replied with the crisis message) hides the buddy until the user expresses a new clear mood.
 - **UI** (`src/components/critter/SessionBuddy.tsx`): `layout="sidebar" | "inline"`, plus `SessionThumb` for the history list. The old `/critter` URL redirects to `/chat`.
+
+## Voice chat (talk and listen)
+The message bar has a **🎤 Talk** button. Tap it and speak, and Calmly answers out loud. The conversation is hands-free (listen → send → speak the reply → listen again) until you tap **End**. While Calmly is speaking, tap the status chip to skip. Every reply also has a **🔊 Read aloud** button.
+
+- **Free, no keys, no packages:** uses the browser's Web Speech APIs, `SpeechRecognition` (speech-to-text) and `speechSynthesis` (text-to-speech). In Chrome and Edge, recognition audio is processed by the browser vendor's free speech service; synthesis uses voices installed on the device.
+- **Languages:** English (`en-US`) and Chinese (`zh-CN`). The **EN/中** toggle picks the recognition language; by default it follows your last message, then your browser language. Replies are spoken in their own language with the best installed voice (`pickVoice`).
+- **Speech quality:** replies are cleaned for speech (no markdown or bullets; links read as their domain) and queued in sentence-sized chunks, because Chrome cuts off long utterances (`src/lib/voice.ts`).
+- **Robustness:** recognition is paused while Calmly speaks, so it never hears itself. After about a minute of silence, voice mode pauses itself. Blocked microphone, missing speech service and unsupported browsers (e.g. Firefox) show a friendly message, and typing still works.
+- **Hook:** `src/components/voice/useVoiceChat.ts`.
 
 - **Matching** (`src/lib/critter/match.ts`): deterministic and weighted, with no LLM call. It understands English (regex) and Chinese (keywords, with 不/没 negation) and produces two signals:
   - **situation** (meetings, task overload, social battery, unseen effort, tiny victory) picks the caption story;
