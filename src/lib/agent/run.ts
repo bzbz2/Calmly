@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { db, conversations, messages, moodEntries, profiles } from "@/db";
 import { buildGraph } from "./graph";
-import { isFeeling } from "../critter/catalog";
+import { isFeeling, type Feeling } from "../critter/catalog";
 import { findPatterns, patternsForPrompt } from "../personal/patterns";
 
 const HISTORY_LIMIT = 20;
@@ -10,7 +10,7 @@ const HISTORY_LIMIT = 20;
 /** Mood history window used for trend text and pattern detection. */
 const PATTERN_WINDOW_DAYS = 56;
 
-export async function runChat(opts: { userId: string; userName: string; conversationId?: string; text: string; tzOffset?: number }) {
+export async function runChat(opts: { userId: string; userName: string; conversationId?: string; text: string; tzOffset?: number; feeling?: Feeling }) {
   const { userId, text } = opts;
 
   // Conversation (create or verify ownership)
@@ -72,8 +72,10 @@ export async function runChat(opts: { userId: string; userName: string; conversa
   // Explicit timestamps keep user/assistant ordering stable within a batch insert.
   const now = Date.now();
 
-  // The LLM's feeling for this message: one of the 29, "none" (no clear feeling), or null (no mood extracted).
-  const feeling = result.mood ? (isFeeling(result.mood.feeling) ? result.mood.feeling : "none") : null;
+  // Feeling for this message: the one the user picked (mood chip), else the LLM's:
+  // one of the 29, "none" (no clear feeling), or null (no mood extracted).
+  const llmFeeling = result.mood ? (isFeeling(result.mood.feeling) ? result.mood.feeling : "none") : null;
+  const feeling = crisis ? llmFeeling : (opts.feeling ?? llmFeeling);
 
   const inserted = await db
     .insert(messages)
@@ -98,7 +100,7 @@ export async function runChat(opts: { userId: string; userName: string; conversa
         label: m.label.toLowerCase(),
         emotions: m.emotions,
         triggers: m.triggers,
-        feeling: isFeeling(m.feeling) ? m.feeling : null,
+        feeling: isFeeling(feeling) ? feeling : null,
       })
       .returning();
   }

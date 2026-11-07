@@ -24,16 +24,16 @@ Each chat session has a mood buddy that **follows the user's latest clear mood**
 - **UI** (`src/components/critter/SessionBuddy.tsx`): `layout="sidebar" | "inline"`, plus `SessionThumb` for the history list. The old `/critter` URL redirects to `/chat`.
 
 ## Voice chat (talk and listen)
-The message bar has a **🎤 Talk** button. Tap it and speak, and Calmly answers out loud. The conversation is hands-free (listen → send → speak the reply → listen again) until you tap **End**. While Calmly is speaking, tap the status chip to skip. Every reply also has a **🔊 Read aloud** button.
+The message bar has a microphone button. Tap it and speak, and Calmly answers out loud. The conversation is hands-free (listen → send → speak the reply → listen again) until you tap **End**. Calmly waits until you've finished: short pauses mid-sentence don't end your turn; about 2 seconds of quiet does (`END_OF_SPEECH_MS`), or tap **Done**. While Calmly is speaking, tap the status chip to skip. Every reply also has a **🔊 Read aloud** button.
 
 - **Free, no keys, no packages:** uses the browser's Web Speech APIs, `SpeechRecognition` (speech-to-text) and `speechSynthesis` (text-to-speech). In Chrome and Edge, recognition audio is processed by the browser vendor's free speech service; synthesis uses voices installed on the device.
-- **Languages:** English (`en-US`) and Chinese (`zh-CN`). The **EN/中** toggle picks the recognition language; by default it follows your last message, then your browser language. Replies are spoken in their own language with the best installed voice (`pickVoice`).
+- **Languages, automatic:** English (`en-US`) and Chinese (`zh-CN`), no toggle. Recognition listens in the language of your last message in this chat, else of your last chat, else your browser's. If a turn comes back unclear (low recognizer confidence), Calmly asks once to repeat and listens in the other language. Calmly replies in the language you used, and replies are spoken in their own language with the best installed voice (`pickVoice`).
 - **Speech quality:** replies are cleaned for speech (no markdown or bullets; links read as their domain) and queued in sentence-sized chunks, because Chrome cuts off long utterances (`src/lib/voice.ts`).
 - **Robustness:** recognition is paused while Calmly speaks, so it never hears itself. After about a minute of silence, voice mode pauses itself. Blocked microphone, missing speech service and unsupported browsers (e.g. Firefox) show a friendly message, and typing still works.
 - **Hook:** `src/components/voice/useVoiceChat.ts`.
 
 ## Personalization
-Pure logic lives in `src/lib/personal/` (unit-tested in `tests/personal.test.ts`); DB access is in `src/lib/personal/server.ts`. Migration: `drizzle/0003_personalization.sql`.
+Pure logic lives in `src/lib/personal/` (unit-tested in `tests/personal.test.ts` and `tests/trend.test.ts`); DB access is in `src/lib/personal/server.ts`. Migration: `drizzle/0003_personalization.sql`.
 
 - **LLM picks the buddy:** the agent's mood analysis returns one of the 29 feelings (or `none`), saved on the user's message and its mood entry. Keywords are only the instant first guess.
 - **Correct the buddy:** tap the feeling label on the card to pick another feeling (`FeelingPicker`). `POST /api/feeling` updates the message and mood entry, and logs keyword vs LLM vs user choice in `feeling_corrections` to improve matching.
@@ -41,8 +41,13 @@ Pure logic lives in `src/lib/personal/` (unit-tested in `tests/personal.test.ts`
 - **Quick replies** under Calmly's latest answer, matched to the feeling and language (anxious → Breathe with me, wronged → Help me say it, tired → Tiny reset, ...).
 - **Gentle check-in:** a new chat opens with "Last time you felt wronged about … How did it go?" when the last mood was heavy and 3h–7 days old.
 - **Patterns** over the last 8 weeks, in the user's time zone (the client sends `tzOffset`): the same heavy feeling on the same weekday three weeks in a row ("Third tired Monday in a row."), 3+ heavy days in a row, or stress climbing. Shown on the new-chat screen and given to the agent to mention once, gently.
-- **Weekly photo diary** on **My mood**: one buddy per day for the last 7 days (`WeekDiary`).
+- **My mood page** (`MoodDashboard`, `MoodTrend`, `src/lib/personal/trend.ts`), in the language you chat in:
+  - Trend chart: one point per local day (several check-ins merge into the day's average; tap a point for that day's check-ins). Days without check-ins stay empty and the line never bridges them ("No entries" / "没记录"). Emoji instead of numbers on the Y axis. A **Mood | Stress** switch shows one line at a time. Default range: last 7 days.
+  - This week: days with check-ins, average mood vs the previous 7 days, the most stressful day, what came up most, and a pattern if there is one. With fewer than 3 days of data: "Log a few more days and I'll start spotting your patterns."
+  - Weekly photo diary: one buddy per day for the last 7 days (`WeekDiary`).
+  - Anonymous **mood weather** (`GET /api/weather`): the most common feeling among everyone who checked in over the last 24 hours, one vote per person (their latest check-in), e.g. "Today 62% of people feel tired". Only counts leave the server, and below 5 people (`WEATHER_MIN_PEOPLE`) nothing about feelings is shown.
 - **Share as image** (⤴ on the card): a 1080×1200 PNG with the photo, label, caption and photo credit, drawn on a canvas. It never includes the user's messages. Uses the native share sheet when available, else downloads.
+- **First screen:** a placeholder buddy (a calm photo of your favourite animal), "Hi {name}, How's your day going?", and 4 one-tap moods (😫 Tired / 😐 Meh / 😊 Good / 😰 Anxious; 累 / 一般 / 不错 / 焦虑 in Chinese). A chip sends a short message with its feeling, so the buddy appears instantly and your own choice is stored instead of the LLM's guess (`src/lib/personal/welcome.ts`).
 - **Sidebar:** shows the 3 most recent chats (plus the open one). "Show earlier chats" reveals the rest; nothing is deleted. `GET /api/insights` returns mood rows, the last mood and animal prefs, never message text.
 
 - **Matching** (`src/lib/critter/match.ts`): deterministic and weighted, with no LLM call. It understands English (regex) and Chinese (keywords, with 不/没 negation) and produces two signals:

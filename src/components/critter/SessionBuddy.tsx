@@ -1,7 +1,7 @@
 "use client";
 import "./critter.css";
 import { useEffect, useRef, useState } from "react";
-import type { Feeling } from "@/lib/critter/catalog";
+import type { Feeling, Lang } from "@/lib/critter/catalog";
 import { sessionMood, sessionSelection, type SessionMessage } from "@/lib/critter/session";
 import { nextPhoto, photo, photoSrc, needsCredit, type PhotoId } from "@/lib/critter/photos";
 import { preferredPhoto, type AnimalPrefs, type PrefSignal } from "@/lib/personal/animals";
@@ -130,6 +130,19 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) 
       </div>
       {note && <p role="status" className="text-center text-[11px] text-slate-500">{note}</p>}
     </section>
+  );
+}
+
+/**
+ * Placeholder buddy on the first screen of a new chat, so there's a face before the
+ * user types. A calm photo of their favourite animal; it's replaced by their mood buddy
+ * as soon as they share how they feel.
+ */
+export function WelcomeBuddy({ lang, label, caption, prefs }: { lang: Lang; label: string; caption: string; prefs?: AnimalPrefs }) {
+  return (
+    <div className="cr-enter mx-auto w-44 sm:w-52">
+      <CritterStage sceneId="feel_calm" photoId={preferredPhoto("calm", prefs)} caption={caption} label={label} lang={lang} playKey={0} paused={false} />
+    </div>
   );
 }
 
