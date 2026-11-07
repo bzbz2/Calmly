@@ -12,7 +12,11 @@ import { defaultVoiceLang } from "@/lib/voice";
 import { SessionBuddy, SessionThumb } from "./critter/SessionBuddy";
 import { useVoiceChat, type VoicePhase } from "./voice/useVoiceChat";
 
-/** `key` identifies a message sent from this tab until the server gives it an `id`. */
+/**
+ * `key` is a local id for every message added in this tab (user and assistant), so React
+ * keys stay unique and stable even after the server returns the user message's `id`.
+ * Messages loaded from history have only `id`.
+ */
 type Msg = { id?: string; key?: number; role: "user" | "assistant"; content: string; feeling?: string | null };
 type Conv = { id: string; title: string };
 type Mood = { label: string; score: number; stress: number };
@@ -93,7 +97,7 @@ export default function Chat({ name }: { name: string }) {
       setMsgs((m) => [
         // The LLM's feeling replaces the instant keyword guess, unless the user already corrected it.
         ...m.map((x) => (x.key === key ? { ...x, id: d.userMessageId, feeling: fix ?? d.feeling ?? x.feeling } : x)),
-        { role: "assistant" as const, content: d.reply },
+        { key: ++keyRef.current, role: "assistant" as const, content: d.reply },
       ]);
       if (d.mood) setLastMood(d.mood);
       if (!convId) setConvId(d.conversationId);
@@ -237,7 +241,7 @@ export default function Chat({ name }: { name: string }) {
             </div>
           )}
           {msgs.map((m, i) => (
-            <div key={m.id ?? `k${m.key ?? i}`} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+            <div key={m.key !== undefined ? `k${m.key}` : (m.id ?? `i${i}`)} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
               <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2 ${m.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100"}`}>{m.content}</div>
               {m.role === "assistant" && voice.supported.tts && !voiceOn && (
                 <button
