@@ -6,7 +6,8 @@ import type { LastMood } from "@/lib/personal/checkin";
 import { describePattern, findPatterns } from "@/lib/personal/patterns";
 import { dailySeries, describeWeather, entryLabel, weekInsights, type TrendRow, type Weather } from "@/lib/personal/trend";
 import { defaultVoiceLang } from "@/lib/voice";
-import { WeekDiary } from "./critter/WeekDiary";
+import { WeekDiary, weekCardDays } from "./critter/WeekDiary";
+import { weekCardLines } from "@/lib/personal/share";
 import { MoodTrend, type Metric } from "./mood/MoodTrend";
 
 // "My mood": one point per day (tap for details), mood or stress, a few plain-language
@@ -21,12 +22,14 @@ const T = {
     empty: "No data yet. Chat with Calmly and your mood will be tracked here automatically.",
     week: "This week", weather: "Mood weather", anon: "Anonymous. Built from counts only, never anyone's messages.",
     checkins: (n: number) => `${n} check-in${n === 1 ? "" : "s"}`, moodN: "mood", stressN: "stress", close: "Close",
+    shareWeek: "Share my week", weekTitle: "My week with Calmly", shared: "Shared", downloaded: "Image saved",
   },
   zh: {
     title: "你的心情", mood: "心情", stress: "压力", range: (d: number) => `最近 ${d} 天`, loading: "加载中…",
     empty: "还没有记录。和 Calmly 聊聊，你的心情会自动记在这里。",
     week: "本周小结", weather: "心情天气", anon: "匿名统计，只用人数，不含任何人的聊天内容。",
     checkins: (n: number) => `${n} 条记录`, moodN: "心情", stressN: "压力", close: "收起",
+    shareWeek: "分享周回顾", weekTitle: "我的一周", shared: "已分享", downloaded: "图片已保存",
   },
 };
 
@@ -58,6 +61,17 @@ export default function MoodDashboard() {
   const insights = useMemo(() => (rows ? weekInsights(rows, now, tz, lang) : []), [rows, now, tz, lang]);
   const pattern = useMemo(() => (rows ? findPatterns(rows, now, tz)[0] : undefined), [rows, now, tz]);
   const day = series.find((d) => d.key === selected);
+  const [weekNote, setWeekNote] = useState("");
+
+  /** Week recap image: 7 buddies + how the week felt (no triggers, no chat text). */
+  async function shareWeek() {
+    if (!rows) return;
+    const { shareWeekCard } = await import("./critter/shareCard");
+    const r = await shareWeekCard({ title: t.weekTitle, days: weekCardDays(rows, prefs, lang), lines: weekCardLines(insights) }).catch(() => "cancelled" as const);
+    if (r === "cancelled") return;
+    setWeekNote(t[r]);
+    setTimeout(() => setWeekNote(""), 2500);
+  }
 
   return (
     <div className="space-y-4" lang={lang}>
@@ -124,7 +138,17 @@ export default function MoodDashboard() {
 
       {rows !== null && rows.length > 0 && (
         <section aria-labelledby="week-title" className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-200">
-          <h2 id="week-title" className="mb-2 font-semibold text-slate-800">{t.week}</h2>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 id="week-title" className="font-semibold text-slate-800">{t.week}</h2>
+            {insights[0]?.id !== "more" && (
+              <span className="flex items-center gap-2">
+                {weekNote && <span role="status" className="text-xs text-slate-500">{weekNote}</span>}
+                <button type="button" onClick={shareWeek} className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100">
+                  📤 {t.shareWeek}
+                </button>
+              </span>
+            )}
+          </div>
           <ul className="space-y-1.5 text-sm text-slate-700">
             {insights.map((i) => (
               <li key={i.id} className="flex gap-2"><span aria-hidden="true">{i.icon}</span><span>{i.text}</span></li>

@@ -76,3 +76,23 @@ export const feelingCorrections = pgTable(
   },
   (t) => [index("corr_user_idx").on(t.userId, t.createdAt)],
 );
+
+// "Send a buddy" gifts (see src/lib/gift/gifts.ts). Public at /g/<token>.
+export const gifts = pgTable(
+  "gifts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    token: text("token").notNull().unique(),
+    senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    senderName: text("sender_name").notNull(),
+    toName: text("to_name"),
+    phrase: text("phrase").notNull(),
+    message: text("message").notNull(),
+    photoId: text("photo_id").notNull(),
+    lang: text("lang").notNull(),
+    replyTo: uuid("reply_to"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    openedAt: timestamp("opened_at"),
+  },
+  (t) => [index("gift_sender_idx").on(t.senderId, t.createdAt)],
+);

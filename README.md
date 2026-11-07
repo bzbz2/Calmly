@@ -46,7 +46,10 @@ Pure logic lives in `src/lib/personal/` (unit-tested in `tests/personal.test.ts`
   - This week: days with check-ins, average mood vs the previous 7 days, the most stressful day, what came up most, and a pattern if there is one. With fewer than 3 days of data: "Log a few more days and I'll start spotting your patterns."
   - Weekly photo diary: one buddy per day for the last 7 days (`WeekDiary`).
   - Anonymous **mood weather** (`GET /api/weather`): the most common feeling among everyone who checked in over the last 24 hours, one vote per person (their latest check-in), e.g. "Today 62% of people feel tired". Only counts leave the server, and below 5 people (`WEATHER_MIN_PEOPLE`) nothing about feelings is shown.
-- **Share as image** (⤴ on the card): a 1080×1200 PNG with the photo, label, caption and photo credit, drawn on a canvas. It never includes the user's messages. Uses the native share sheet when available, else downloads.
+- **Share my mood card** (a 1080×1200 PNG drawn on a canvas: photo, feeling, caption and photo credit, never the user's messages; native share sheet when available, else download):
+  - in chat, at the reveal moment: one small **📤 Share today's me / 分享今天的我** button under Calmly's reply once the buddy is shown (it shares exactly what the card shows, after any photo/caption swaps). Also ⤴ on the card;
+  - on My mood, tap a day in the weekly diary to share that day's card;
+  - **Share my week / 分享周回顾**: a 1080×1350 recap with the 7 daily buddies and how the week felt. It leaves out "what came up" (triggers).
 - **First screen:** a placeholder buddy (a calm photo of your favourite animal), "Hi {name}, How's your day going?", and 4 one-tap moods (😫 Tired / 😐 Meh / 😊 Good / 😰 Anxious; 累 / 一般 / 不错 / 焦虑 in Chinese). A chip sends a short message with its feeling, so the buddy appears instantly and your own choice is stored instead of the LLM's guess (`src/lib/personal/welcome.ts`).
 - **Sidebar:** shows the 3 most recent chats (plus the open one). "Show earlier chats" reveals the rest; nothing is deleted. `GET /api/insights` returns mood rows, the last mood and animal prefs, never message text.
 
@@ -114,3 +117,12 @@ Photo rules: animals only (no people or body parts), nothing scary (no bones, sk
 - Per-photo focal points (`pos`) for tighter crops, and more photos per feeling.
 - Sharing beyond images: copy link, opt-in public page with opaque IDs, OG tags.
 - Chat action "turn this into a critter", privacy-safe usage counts, and opt-in "log this mood".
+
+## Send a buddy (送一只 🎁)
+Caring for someone else, separate from your own mood: the buddy comes from what you want to say, never from how you feel.
+
+- **Entry points:** a permanent nav link **Send a buddy 🎁 / 送一只 🎁** (`/gift`), and a gentle line on the buddy card only when your mood is good ("心情不错，要不要把好心情送给谁？"). Never shown on low moods.
+- **Flow** (`src/components/gift/GiftFlow.tsx`): pick a phrase (想你了 / 加油 / 抱抱 / 辛苦了 / 生日快乐 / 自己写; Miss you / You've got this / Hugs / You've worked so hard / Happy birthday / Write your own), and Calmly pairs a matching animal (抱抱 → koala). **Another animal** cycles the phrase's photos. Optional "to" name. **Create link** gives a `/g/<token>` link with Copy and Share. "Sent recently" shows whether each gift was opened.
+- **The friend's page** (`/g/<token>`, public, no login): "小明送你一只考拉：抱抱 🐨", the animated card, and two buttons: **回送一只 / Send one back** (`/gift?reply=<token>`, the loop that spreads it) and **看看今天的我是哪只 / Which buddy am I today?** (into Calmly). Logged-out friends go through sign-up first and land where they were going (`?next=`, same-site paths only). The page has link-preview tags (title + photo) and is `noindex`.
+- **Privacy and safety:** the link token is 16 random bytes (unguessable); the page shows only the sender's display name, the message and the photo. Custom text is one line, max 40 characters, with links and control characters removed. Limit: 30 gifts per person per day. Data: `gifts` table (`drizzle/0004_gifts.sql`), logic in `src/lib/gift/`.
+- **Later:** suggest a gift when the user mentions someone else having a hard time ("我朋友最近压力很大" → "要不要送 TA 一只 buddy？"). Needs simple intent detection.

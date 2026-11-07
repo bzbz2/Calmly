@@ -10,7 +10,7 @@ import { describePattern, findPatterns } from "@/lib/personal/patterns";
 import { quickReplies } from "@/lib/personal/quickReplies";
 import { moodChips, welcomeText } from "@/lib/personal/welcome";
 import { defaultVoiceLang } from "@/lib/voice";
-import { SessionBuddy, SessionThumb, WelcomeBuddy } from "./critter/SessionBuddy";
+import { SessionBuddy, SessionThumb, WelcomeBuddy, type BuddyCard } from "./critter/SessionBuddy";
 import { useVoiceChat, type VoicePhase } from "./voice/useVoiceChat";
 
 /**
@@ -46,6 +46,11 @@ const PATTERN_UI: Record<Lang, { yes: string; send: string }> = {
   zh: { yes: "好，一起看看", send: "好，我们一起看看这个规律吧。" },
 };
 
+const SHARE_UI: Record<Lang, { share: string; shared: string; downloaded: string }> = {
+  en: { share: "Share today's me", shared: "Shared", downloaded: "Image saved" },
+  zh: { share: "分享今天的我", shared: "已分享", downloaded: "图片已保存" },
+};
+
 const postJson = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -66,6 +71,9 @@ export default function Chat({ name }: { name: string }) {
   const keyRef = useRef(0);
   // Corrections made before the server returned the message id; sent once it does.
   const pendingFix = useRef(new Map<number, Feeling>());
+  // What the buddy card shows right now (after any photo/caption swaps), for "Share today's me".
+  const buddyCard = useRef<BuddyCard | null>(null);
+  const [shareNote, setShareNote] = useState("");
 
   const refreshConvs = () =>
     fetch("/api/conversations").then((r) => r.json()).then((d) => setConvs(d.conversations ?? []));
@@ -141,6 +149,18 @@ export default function Chat({ name }: { name: string }) {
 
   function sendPref(s: PrefSignal) {
     postJson("/api/prefs", s).catch(() => {});
+  }
+
+  /** Share the buddy card as an image: photo, feeling and caption only, never the chat. */
+  async function shareToday() {
+    if (!mood) return;
+    const sel = mood.selection;
+    const card = buddyCard.current ?? { photoId: preferredPhoto(sel.feeling, prefs), label: sel.feelingLabel, caption: sel.caption, feeling: sel.feeling };
+    const { shareCard } = await import("./critter/shareCard");
+    const r = await shareCard(card).catch(() => "cancelled" as const);
+    if (r === "cancelled") return;
+    setShareNote(SHARE_UI[sel.lang][r]);
+    setTimeout(() => setShareNote(""), 2500);
   }
 
   const voice = useVoiceChat({ lang: voiceLang, onUtterance: sendText });
@@ -222,13 +242,13 @@ export default function Chat({ name }: { name: string }) {
             </button>
           )}
         </nav>
-        <SessionBuddy key={moodKey} msgs={msgs} layout="sidebar" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} />
+        <SessionBuddy key={moodKey} msgs={msgs} layout="sidebar" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} />
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-white/80 shadow-sm ring-1 ring-slate-200">
         {mood && (
           <div className="px-3 pt-3 md:hidden">
-            <SessionBuddy key={moodKey} msgs={msgs} layout="inline" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} />
+            <SessionBuddy key={moodKey} msgs={msgs} layout="inline" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} />
           </div>
         )}
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
@@ -284,6 +304,15 @@ export default function Chat({ name }: { name: string }) {
               )}
             </div>
           ))}
+          {mood && last?.role === "assistant" && !busy && (
+            // The reveal moment: one button only, to share how I feel today.
+            <div className="flex items-center gap-2" lang={mood.selection.lang}>
+              <button type="button" onClick={shareToday} className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100">
+                📤 {SHARE_UI[mood.selection.lang].share}
+              </button>
+              {shareNote && <span role="status" className="text-xs text-slate-500">{shareNote}</span>}
+            </div>
+          )}
           {replies.length > 0 && (
             <div className="flex flex-wrap gap-1.5" aria-label="Quick replies" lang={mood?.selection.lang}>
               {replies.map((q) => (

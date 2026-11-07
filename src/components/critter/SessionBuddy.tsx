@@ -5,6 +5,8 @@ import type { Feeling, Lang } from "@/lib/critter/catalog";
 import { sessionMood, sessionSelection, type SessionMessage } from "@/lib/critter/session";
 import { nextPhoto, photo, photoSrc, needsCredit, type PhotoId } from "@/lib/critter/photos";
 import { preferredPhoto, type AnimalPrefs, type PrefSignal } from "@/lib/personal/animals";
+import { isLight } from "@/lib/personal/moods";
+import Link from "next/link";
 import { CritterStage, motionOf } from "./CritterStage";
 import { FeelingPicker } from "./FeelingPicker";
 
@@ -19,8 +21,8 @@ import { FeelingPicker } from "./FeelingPicker";
 // shared as an image (photo + label + caption only, never the user's message).
 
 const UI = {
-  en: { title: "How you're feeling", replay: "Replay", pause: "Pause", play: "Play", photo: "Another photo", caption: "Another caption", share: "Share as image", shared: "Shared", saved: "Image saved", fix: "Not quite right? Tap to change" },
-  zh: { title: "此刻的你", replay: "重播", pause: "暂停", play: "播放", photo: "换张照片", caption: "换句话", share: "分享为图片", shared: "已分享", saved: "图片已保存", fix: "不太对？点一下修改" },
+  en: { title: "How you're feeling", replay: "Replay", pause: "Pause", play: "Play", photo: "Another photo", caption: "Another caption", share: "Share as image", shared: "Shared", saved: "Image saved", fix: "Not quite right? Tap to change", gift: "Feeling good. Want to pass some on to someone?" },
+  zh: { title: "此刻的你", replay: "重播", pause: "暂停", play: "播放", photo: "换张照片", caption: "换句话", share: "分享为图片", shared: "已分享", saved: "图片已保存", fix: "不太对？点一下修改", gift: "心情不错，要不要把好心情送给谁？" },
 } as const;
 
 /** How long the user has to stay on a photo for it to count as liked. */
@@ -32,9 +34,13 @@ type Props = {
   prefs?: AnimalPrefs;
   onPref?: (s: PrefSignal) => void;
   onCorrect?: (sourceIndex: number, feeling: Feeling) => void;
+  onState?: (card: BuddyCard) => void;
 };
 
-export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) {
+/** What the card currently shows (photo may differ from the default after "Another photo"). */
+export type BuddyCard = { photoId: PhotoId; label: string; caption: string; feeling: Feeling };
+
+export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect, onState }: Props) {
   const [variant, setVariant] = useState(0);
   const [photoId, setPhotoId] = useState<PhotoId | null>(null);
   const [playKey, setPlayKey] = useState(0);
@@ -45,11 +51,18 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) 
   useEffect(() => () => clearTimeout(settle.current), []);
 
   const mood = sessionMood(msgs, { variant });
-  if (!mood) return null;
-  const sel = mood.selection;
-
+  const s = mood?.selection;
   // Keep the first default photo for this card, so prefs updating mid-card doesn't swap it.
-  const pid = photoId ?? preferredPhoto(sel.feeling, prefs);
+  const shownPhoto = s ? (photoId ?? preferredPhoto(s.feeling, prefs)) : null;
+  // Tell the chat what's on the card, so "Share today's me" shares exactly this.
+  useEffect(() => {
+    if (s && shownPhoto) onState?.({ photoId: shownPhoto, label: s.feelingLabel, caption: s.caption, feeling: s.feeling });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- report only when the card changes
+  }, [shownPhoto, s?.caption, s?.feelingLabel, s?.feeling]);
+
+  if (!mood || !s || !shownPhoto) return null;
+  const sel = s;
+  const pid = shownPhoto;
   const t = UI[sel.lang];
   const replay = () => { setPaused(false); setPlayKey((k) => k + 1); };
   const swapPhoto = () => {
@@ -87,6 +100,13 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) 
     );
   const picker = picking && <FeelingPicker lang={sel.lang} current={sel.feeling} onPick={correct} onClose={() => setPicking(false)} />;
 
+  // Only on good moods: a gentle nudge to pass it on. Never when the user is low.
+  const giftNudge = isLight(sel.feeling) && (
+    <Link href="/gift" className="block rounded-xl bg-amber-50 px-3 py-1.5 text-center text-[11.5px] text-amber-800 ring-1 ring-amber-100 hover:bg-amber-100">
+      🎁 {t.gift}
+    </Link>
+  );
+
   if (layout === "inline") {
     const p = photo(pid);
     return (
@@ -107,6 +127,7 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) 
           <button type="button" onClick={share} aria-label={t.share} title={t.share} className="shrink-0 rounded-full px-2 py-1 text-sm text-slate-500 hover:bg-slate-100">⤴</button>
         </div>
         {picker}
+        {giftNudge}
         {note && <p role="status" className="text-center text-[11px] text-slate-500">{note}</p>}
       </div>
     );
@@ -128,6 +149,7 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect }: Props) 
         <button type="button" className={icon} onClick={swapCaption} aria-label={t.caption} title={t.caption}>💬</button>
         <button type="button" className={icon} onClick={share} aria-label={t.share} title={t.share}>⤴</button>
       </div>
+      {giftNudge}
       {note && <p role="status" className="text-center text-[11px] text-slate-500">{note}</p>}
     </section>
   );

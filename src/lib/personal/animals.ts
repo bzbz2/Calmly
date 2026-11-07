@@ -21,6 +21,30 @@ export function animalOf(photoId: string): string {
   return ANIMAL_PREFIXES.find(([p]) => photoId.startsWith(p))?.[1] ?? "dog";
 }
 
+const ANIMAL_INFO: Record<string, { zh: string; emoji: string }> = {
+  cat: { zh: "猫", emoji: "🐱" },
+  dog: { zh: "狗", emoji: "🐶" },
+  capybara: { zh: "水豚", emoji: "🐾" },
+  "red panda": { zh: "小熊猫", emoji: "🐾" },
+  panda: { zh: "熊猫", emoji: "🐼" },
+  quokka: { zh: "短尾矮袋鼠", emoji: "🐾" },
+  koala: { zh: "考拉", emoji: "🐨" },
+  seal: { zh: "海豹", emoji: "🦭" },
+  hamster: { zh: "仓鼠", emoji: "🐹" },
+  "Pallas's cat": { zh: "兔狲", emoji: "🐱" },
+  meerkat: { zh: "狐獴", emoji: "🐾" },
+  otter: { zh: "水獭", emoji: "🦦" },
+};
+
+/** An animal's name in the user's language ("考拉" / "koala"). */
+export function animalName(animal: string, lang: "en" | "zh"): string {
+  return lang === "zh" ? (ANIMAL_INFO[animal]?.zh ?? animal) : animal;
+}
+
+export function animalEmoji(animal: string): string {
+  return ANIMAL_INFO[animal]?.emoji ?? "🐾";
+}
+
 const WEIGHT = { skip: -1, settle: 2 } as const;
 const CLAMP = 10;
 

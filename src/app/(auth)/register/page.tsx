@@ -1,11 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { safeNext } from "@/lib/safeNext";
 import { signIn } from "next-auth/react";
 
 export default function Register() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Keep ?next= when switching between log in and sign up (e.g. from a gift link).
+  const [q, setQ] = useState("");
+  useEffect(() => setQ(window.location.search), []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,7 +24,7 @@ export default function Register() {
       return;
     }
     await signIn("credentials", { email: payload.email, password: payload.password, redirect: false });
-    window.location.href = "/chat";
+    window.location.href = safeNext(new URLSearchParams(window.location.search).get("next"));
   }
 
   const cls = "rounded-lg border border-slate-300 bg-white px-3 py-2";
@@ -37,7 +41,7 @@ export default function Register() {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button disabled={busy} className="rounded-lg bg-indigo-600 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">{busy ? "Creating…" : "Sign up"}</button>
       </form>
-      <p className="mt-4 text-sm text-slate-600">Already have an account? <Link href="/login" className="text-indigo-600 underline">Log in</Link></p>
+      <p className="mt-4 text-sm text-slate-600">Already have an account? <Link href={`/login${q}`} className="text-indigo-600 underline">Log in</Link></p>
     </main>
   );
 }

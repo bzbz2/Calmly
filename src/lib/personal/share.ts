@@ -31,3 +31,17 @@ export function wrapLines(text: string, maxWidth: number, measure: (s: string) =
 export function shareFileName(feeling: string, now: Date): string {
   return `calmly-${feeling.replace(/[^a-z_]/gi, "")}-${now.toISOString().slice(0, 10)}.png`;
 }
+
+/**
+ * Lines for the shareable week recap. Leaves out what came up in chats (triggers):
+ * a shared image should say how the week felt, not what it was about.
+ */
+export function weekCardLines(insights: { id: string; text: string }[]): string[] {
+  return insights.filter((i) => i.id !== "triggers" && i.id !== "more").map((i) => i.text);
+}
+
+/** One attribution line for several photos (CC BY / BY-SA need the authors' names). */
+export function photoCredits(photos: { author: string; license: string }[]): string {
+  const authors = [...new Set(photos.filter((p) => /^CC BY/i.test(p.license) && p.author).map((p) => p.author))];
+  return authors.length ? `Photos: ${authors.join(", ")} · Wikimedia Commons (CC BY / BY-SA)` : "Photos: Wikimedia Commons";
+}
