@@ -49,6 +49,8 @@ export const FEELINGS = [
 ] as const;
 export type Feeling = (typeof FEELINGS)[number];
 
+export const isFeeling = (x: unknown): x is Feeling => typeof x === "string" && (FEELINGS as readonly string[]).includes(x);
+
 export type ArtId = "meeting_fatigue" | `feel_${Feeling}`;
 
 export type SituationScene = {

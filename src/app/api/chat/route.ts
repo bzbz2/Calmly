@@ -5,7 +5,11 @@ import { runChat } from "@/lib/agent/run";
 
 export const maxDuration = 60;
 
-const body = z.object({ text: z.string().trim().min(1).max(4000), conversationId: z.string().uuid().optional() });
+const body = z.object({
+  text: z.string().trim().min(1).max(4000),
+  conversationId: z.string().uuid().optional(),
+  tzOffset: z.number().int().min(-840).max(840).optional(), // Date#getTimezoneOffset(), for weekday patterns
+});
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -18,6 +22,7 @@ export async function POST(req: Request) {
       userName: session.user.name ?? "",
       text: parsed.data.text,
       conversationId: parsed.data.conversationId,
+      tzOffset: parsed.data.tzOffset,
     });
     return NextResponse.json(out);
   } catch (e) {

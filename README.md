@@ -20,7 +20,7 @@ START → crisisCheck → moodExtract → (high risk ? crisisResponse : responde
 ## Mood buddy (in chat)
 Each chat session has a mood buddy that **follows the user's latest clear mood**: a real animal photo with a 1-2s micro-motion and a tiny overlay, plus a short first-person caption laid over the photo ("明明不是我的错，却要我来扛。"). It sits at the bottom of the chat-history sidebar (on mobile, a compact row above the messages). When a new message expresses a different feeling, the card fades in with the new photo. Neutral follow-ups ("ok", "what should I do?") keep the current buddy. The open chat's history thumbnail matches the live buddy; other chats show a thumbnail from their opening line. The caption, feeling label and buttons follow the input language. The buddy mirrors how you feel; it never responds to you or tries to comfort you. Calmly's reply does that.
 
-- **Session rule** (`src/lib/critter/session.ts`): `sessionMood(messages)` walks user messages from newest to oldest and uses the first one with a clear signal (`hasMoodSignal`: a feeling score above threshold or a known situation). If no message has a clear signal, it falls back to the first message. It is pure and deterministic, so nothing extra is stored and reopening a conversation recomputes the same buddy. Safety: a crisis message (keyword pre-screen, or the agent replied with the crisis message) hides the buddy until the user expresses a new clear mood.
+- **Session rule** (`src/lib/critter/session.ts`): `sessionMood(messages)` walks user messages from newest to oldest and uses the first one with a clear feeling. A message's feeling comes from `messages.feeling` (the user's correction, or the feeling the LLM picked; `"none"` = neutral), else from keyword matching (`hasMoodSignal`), which gives an instant guess before the reply arrives. If no message has a clear signal, it falls back to the first message. It is pure and deterministic, so reopening a conversation recomputes the same buddy. Safety: a crisis message (keyword pre-screen, or the agent replied with the crisis message) hides the buddy until the user expresses a new clear mood.
 - **UI** (`src/components/critter/SessionBuddy.tsx`): `layout="sidebar" | "inline"`, plus `SessionThumb` for the history list. The old `/critter` URL redirects to `/chat`.
 
 ## Voice chat (talk and listen)
@@ -32,12 +32,25 @@ The message bar has a **🎤 Talk** button. Tap it and speak, and Calmly answers
 - **Robustness:** recognition is paused while Calmly speaks, so it never hears itself. After about a minute of silence, voice mode pauses itself. Blocked microphone, missing speech service and unsupported browsers (e.g. Firefox) show a friendly message, and typing still works.
 - **Hook:** `src/components/voice/useVoiceChat.ts`.
 
+## Personalization
+Pure logic lives in `src/lib/personal/` (unit-tested in `tests/personal.test.ts`); DB access is in `src/lib/personal/server.ts`. Migration: `drizzle/0003_personalization.sql`.
+
+- **LLM picks the buddy:** the agent's mood analysis returns one of the 29 feelings (or `none`), saved on the user's message and its mood entry. Keywords are only the instant first guess.
+- **Correct the buddy:** tap the feeling label on the card to pick another feeling (`FeelingPicker`). `POST /api/feeling` updates the message and mood entry, and logs keyword vs LLM vs user choice in `feeling_corrections` to improve matching.
+- **Favourite animals:** "Another photo" counts as a skip (−1) for that animal; staying on a photo for 4s counts as a settle (+2). Scores are clamped to ±10 and stored in `profiles.animal_prefs` (`POST /api/prefs`). Each feeling then starts with the favourite animal among its photos.
+- **Quick replies** under Calmly's latest answer, matched to the feeling and language (anxious → Breathe with me, wronged → Help me say it, tired → Tiny reset, ...).
+- **Gentle check-in:** a new chat opens with "Last time you felt wronged about … How did it go?" when the last mood was heavy and 3h–7 days old.
+- **Patterns** over the last 8 weeks, in the user's time zone (the client sends `tzOffset`): the same heavy feeling on the same weekday three weeks in a row ("Third tired Monday in a row."), 3+ heavy days in a row, or stress climbing. Shown on the new-chat screen and given to the agent to mention once, gently.
+- **Weekly photo diary** on **My mood**: one buddy per day for the last 7 days (`WeekDiary`).
+- **Share as image** (⤴ on the card): a 1080×1200 PNG with the photo, label, caption and photo credit, drawn on a canvas. It never includes the user's messages. Uses the native share sheet when available, else downloads.
+- **Sidebar:** shows the 3 most recent chats (plus the open one). "Show earlier chats" reveals the rest; nothing is deleted. `GET /api/insights` returns mood rows, the last mood and animal prefs, never message text.
+
 - **Matching** (`src/lib/critter/match.ts`): deterministic and weighted, with no LLM call. It understands English (regex) and Chinese (keywords, with 不/没 negation) and produces two signals:
   - **situation** (meetings, task overload, social battery, unseen effort, tiny victory) picks the caption story;
   - **feeling** (29 of them, below) picks the photo, motion and overlay.
   If the user's feeling differs from a situation's usual tone ("meetings make me anxious"), the feeling wins. On a score tie, the more specific feeling wins (`FEELING_PRIORITY`); a light + heavy tie reads as `mixed`.
 - **Safety** (`src/lib/critter/safety.ts`): an English + Chinese keyword crisis pre-screen runs first. On a hit, the page shows the shared support message (`src/lib/safety.ts`) and no photo. It's a coarse net; the chat agent's LLM risk check remains the primary safety path.
-- **Privacy:** the buddy stores nothing of its own. It is derived from the chat history that is already saved. Mood tracking still comes only from the chat agent's `mood_entries`.
+- **Privacy:** the buddy is derived from the saved chat history plus the feeling stored on each message. Mood tracking still comes only from the chat agent's `mood_entries`.
 - **Card** (`src/components/critter/CritterStage.tsx`): a square photo with the caption on a soft bottom gradient, the feeling label as a small line above the caption (keeping the face clear), and an SVG overlay (z's, rain cloud, "?", steam...) on top. Motion is plain CSS keyframes in `critter.css` under `.cr-m-<feeling>`: subtle pan, tilt, breathing zoom, shake, color tint. The photo is pre-scaled to 1.08 so motion never shows an edge. Under `prefers-reduced-motion`, the card is still. Replay, Pause, **Another photo** (same feeling, next photo) and **Another caption** are provided.
 
 ### Photos and licensing
@@ -94,5 +107,5 @@ Photo rules: animals only (no people or body parts), nothing scary (no bones, sk
 
 ### Backlog
 - Per-photo focal points (`pos`) for tighter crops, and more photos per feeling.
-- Phase 3: sharing (Web Share, copy link, opt-in public page with opaque IDs, OG tags) and media export.
+- Sharing beyond images: copy link, opt-in public page with opaque IDs, OG tags.
 - Chat action "turn this into a critter", privacy-safe usage counts, and opt-in "log this mood".

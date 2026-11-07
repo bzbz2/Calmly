@@ -1,11 +1,16 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { db, conversations, messages, moodEntries, profiles } from "@/db";
 import { buildGraph } from "./graph";
+import { isFeeling } from "../critter/catalog";
+import { findPatterns, patternsForPrompt } from "../personal/patterns";
 
 const HISTORY_LIMIT = 20;
 
-export async function runChat(opts: { userId: string; userName: string; conversationId?: string; text: string }) {
+/** Mood history window used for trend text and pattern detection. */
+const PATTERN_WINDOW_DAYS = 56;
+
+export async function runChat(opts: { userId: string; userName: string; conversationId?: string; text: string; tzOffset?: number }) {
   const { userId, text } = opts;
 
   // Conversation (create or verify ownership)
@@ -34,14 +39,16 @@ export async function runChat(opts: { userId: string; userName: string; conversa
     .limit(HISTORY_LIMIT);
   history.reverse();
 
-  const recent = await db
+  const history56 = await db
     .select()
     .from(moodEntries)
-    .where(eq(moodEntries.userId, userId))
+    .where(and(eq(moodEntries.userId, userId), gte(moodEntries.createdAt, new Date(Date.now() - PATTERN_WINDOW_DAYS * 86_400_000))))
     .orderBy(desc(moodEntries.createdAt))
-    .limit(10);
-  const moodHistory = recent
-    .reverse()
+    .limit(300);
+  history56.reverse(); // oldest first
+  const patterns = patternsForPrompt(findPatterns(history56, new Date(), opts.tzOffset ?? 0));
+  const moodHistory = history56
+    .slice(-10)
     .map((m) => `${m.createdAt.toISOString().slice(0, 10)}: ${m.label} (mood ${m.score}/10, stress ${m.stress}/10${m.triggers.length ? `; ${m.triggers.join(", ")}` : ""})`)
     .join("\n");
 
@@ -55,6 +62,7 @@ export async function runChat(opts: { userId: string; userName: string; conversa
     birthdate: profile?.birthdate ?? null,
     memory: profile?.summary ?? "",
     moodHistory,
+    patterns,
     userText: text,
   });
 
@@ -64,17 +72,34 @@ export async function runChat(opts: { userId: string; userName: string; conversa
   // Explicit timestamps keep user/assistant ordering stable within a batch insert.
   const now = Date.now();
 
-  await db.insert(messages).values([
-    { conversationId, userId, role: "user", content: text, createdAt: new Date(now) },
-    { conversationId, userId, role: "assistant", content: reply, createdAt: new Date(now + 1) },
-  ]);
+  // The LLM's feeling for this message: one of the 29, "none" (no clear feeling), or null (no mood extracted).
+  const feeling = result.mood ? (isFeeling(result.mood.feeling) ? result.mood.feeling : "none") : null;
+
+  const inserted = await db
+    .insert(messages)
+    .values([
+      { conversationId, userId, role: "user", content: text, feeling, createdAt: new Date(now) },
+      { conversationId, userId, role: "assistant", content: reply, createdAt: new Date(now + 1) },
+    ])
+    .returning({ id: messages.id, role: messages.role });
+  const userMessageId = inserted.find((m) => m.role === "user")?.id ?? null;
 
   let mood = null;
   if (result.mood) {
     const m = result.mood;
     [mood] = await db
       .insert(moodEntries)
-      .values({ userId, conversationId, score: m.score, stress: m.stress, label: m.label.toLowerCase(), emotions: m.emotions, triggers: m.triggers })
+      .values({
+        userId,
+        conversationId,
+        messageId: userMessageId,
+        score: m.score,
+        stress: m.stress,
+        label: m.label.toLowerCase(),
+        emotions: m.emotions,
+        triggers: m.triggers,
+        feeling: isFeeling(m.feeling) ? m.feeling : null,
+      })
       .returning();
   }
 
@@ -85,12 +110,12 @@ export async function runChat(opts: { userId: string; userName: string; conversa
       .onConflictDoUpdate({ target: profiles.userId, set: { summary: result.newMemory, updatedAt: new Date() } });
   }
 
-  return { conversationId, reply, mood, crisis };
+  return { conversationId, reply, mood, crisis, userMessageId, feeling };
 }
 
 export async function loadConversation(userId: string, conversationId: string) {
   return db
-    .select({ id: messages.id, role: messages.role, content: messages.content })
+    .select({ id: messages.id, role: messages.role, content: messages.content, feeling: messages.feeling })
     .from(messages)
     .where(and(eq(messages.conversationId, conversationId), eq(messages.userId, userId)))
     .orderBy(asc(messages.createdAt));

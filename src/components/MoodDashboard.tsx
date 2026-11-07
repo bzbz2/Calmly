@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { WeekDiary } from "./critter/WeekDiary";
 
 type Entry = { id: string; score: number; stress: number; label: string; triggers: string[]; createdAt: string };
 
@@ -35,6 +36,7 @@ export default function MoodDashboard() {
           <option value={90}>Last 90 days</option>
         </select>
       </div>
+      <WeekDiary />
       {rows === null ? (
         <p className="text-slate-500">Loading…</p>
       ) : rows.length === 0 ? (

@@ -324,10 +324,15 @@ export type AnimationSelection = {
   variantCount: number;
 };
 
-export function selectMoodAnimation(text: string, opts: { variant?: number } = {}): AnimationSelection {
+/**
+ * Pick the buddy for a message. `opts.feeling` overrides keyword detection, e.g. with
+ * the feeling the LLM picked or the user's correction; the situation story is still
+ * kept when it fits that feeling.
+ */
+export function selectMoodAnimation(text: string, opts: { variant?: number; feeling?: Feeling } = {}): AnimationSelection {
   const lang = detectLang(text);
   const { intent, confidence } = matchIntent(text);
-  const detected = detectFeeling(text);
+  const detected = opts.feeling ? { feeling: opts.feeling, score: MIN_SCORE } : detectFeeling(text);
 
   let sceneId: ArtId;
   let feeling: Feeling;
