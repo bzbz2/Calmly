@@ -11,7 +11,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <span className="whitespace-nowrap text-base font-semibold sm:text-lg">🌿 Calmly</span>
         <nav className="flex items-center gap-2.5 whitespace-nowrap text-xs sm:gap-4 sm:text-sm">
           <Link href="/chat" className="hover:underline">Chat</Link>
-          <Link href="/critter" className="hover:underline">Critter</Link>
           <Link href="/mood" className="hover:underline">My mood</Link>
           <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
             <button className="text-slate-500 hover:underline">Log out</button>

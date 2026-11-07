@@ -17,15 +17,18 @@ START → crisisCheck → moodExtract → (high risk ? crisisResponse : responde
 - Memory: rolling per-user summary in `profiles.summary` + last 10 moods injected into the prompt.
 - Moods saved per message to `mood_entries`, charted on `/mood`.
 
-## How are you feeling today? (`/critter`)
-Type one sentence, in English or Chinese. You get a real animal photo with a 1-2s micro-motion and a tiny overlay, plus a short first-person caption laid over the photo ("明明不是我的错，却要我来扛。"). The caption, feeling label and buttons follow your input language. The card mirrors how you feel; it never responds to you or tries to comfort you.
+## Mood buddy (in chat)
+Each chat session gets **one** mood buddy, picked from the session's **first** message: a real animal photo with a 1-2s micro-motion and a tiny overlay, plus a short first-person caption laid over the photo ("明明不是我的错，却要我来扛。"). It sits at the bottom of the chat-history sidebar (on mobile, a compact row above the messages), and every conversation in the history list shows its buddy as a small thumbnail. The caption, feeling label and buttons follow the input language. The buddy mirrors how you feel; it never responds to you or tries to comfort you. Calmly's reply does that.
+
+- **Session rule** (`src/lib/critter/session.ts`): `sessionSelection(firstUserMessage)` is pure and deterministic, so nothing extra is stored. Reopening a conversation recomputes the same buddy from history, and later messages never change it. No buddy appears if the opening trips the crisis pre-screen or the agent replied with the crisis message.
+- **UI** (`src/components/critter/SessionBuddy.tsx`): `layout="sidebar" | "inline"`, plus `SessionThumb` for the history list. The old `/critter` URL redirects to `/chat`.
 
 - **Matching** (`src/lib/critter/match.ts`): deterministic and weighted, with no LLM call. It understands English (regex) and Chinese (keywords, with 不/没 negation) and produces two signals:
   - **situation** (meetings, task overload, social battery, unseen effort, tiny victory) picks the caption story;
   - **feeling** (29 of them, below) picks the photo, motion and overlay.
   If the user's feeling differs from a situation's usual tone ("meetings make me anxious"), the feeling wins. On a score tie, the more specific feeling wins (`FEELING_PRIORITY`); a light + heavy tie reads as `mixed`.
 - **Safety** (`src/lib/critter/safety.ts`): an English + Chinese keyword crisis pre-screen runs first. On a hit, the page shows the shared support message (`src/lib/safety.ts`) and no photo. It's a coarse net; the chat agent's LLM risk check remains the primary safety path.
-- **Privacy:** the sentence is not stored, logged, or echoed back, and critter use never writes to `mood_entries`.
+- **Privacy:** the buddy stores nothing of its own. It is derived from the chat history that is already saved. Mood tracking still comes only from the chat agent's `mood_entries`.
 - **Card** (`src/components/critter/CritterStage.tsx`): a square photo with the caption on a soft bottom gradient, the feeling label as a small line above the caption (keeping the face clear), and an SVG overlay (z's, rain cloud, "?", steam...) on top. Motion is plain CSS keyframes in `critter.css` under `.cr-m-<feeling>`: subtle pan, tilt, breathing zoom, shake, color tint. The photo is pre-scaled to 1.08 so motion never shows an edge. Under `prefers-reduced-motion`, the card is still. Replay, Pause, **Another photo** (same feeling, next photo) and **Another caption** are provided.
 
 ### Photos and licensing
