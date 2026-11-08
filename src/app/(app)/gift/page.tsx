@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { accountOf } from "@/lib/account";
 import GiftFlow from "@/components/gift/GiftFlow";
 import { isGiftPhrase } from "@/lib/gift/gifts";
 import { getGiftByToken } from "@/lib/gift/server";
@@ -15,5 +16,5 @@ export default async function GiftPage({ searchParams }: { searchParams: Promise
   const reply = sp.reply ? await getGiftByToken(sp.reply) : null;
   const replyTo = reply && reply.senderId !== userId ? { token: sp.reply!, name: reply.senderName } : null;
   const lang = replyTo ? reply!.lang : ((userId ? (await getLastMood(userId))?.lang : undefined) ?? (await requestLang()));
-  return <GiftFlow lang={lang} myName={session?.user?.name ?? ""} replyTo={replyTo} initialPhrase={isGiftPhrase(sp.phrase) ? sp.phrase : undefined} />;
+  return <GiftFlow lang={lang} myName={session?.user?.name ?? ""} replyTo={replyTo} initialPhrase={isGiftPhrase(sp.phrase) ? sp.phrase : undefined} canSend={accountOf(session) === "user"} />;
 }

@@ -5,7 +5,9 @@ import type { AnimalPrefs } from "@/lib/personal/animals";
 import type { LastMood } from "@/lib/personal/checkin";
 import { describePattern, findPatterns } from "@/lib/personal/patterns";
 import { dailySeries, describeWeather, entryLabel, weekInsights, type TrendRow, type Weather } from "@/lib/personal/trend";
+import { GUEST_UI, signUpHref } from "@/lib/guest";
 import { defaultVoiceLang } from "@/lib/voice";
+import Link from "next/link";
 import { WeekDiary, weekCardDays } from "./critter/WeekDiary";
 import { weekCardLines } from "@/lib/personal/share";
 import { MoodTrend, type Metric } from "./mood/MoodTrend";
@@ -33,7 +35,7 @@ const T = {
   },
 };
 
-export default function MoodDashboard() {
+export default function MoodDashboard({ guest = false }: { guest?: boolean }) {
   const [days, setDays] = useState<(typeof RANGES)[number]>(7);
   const [metric, setMetric] = useState<Metric>("mood");
   const [rows, setRows] = useState<Entry[] | null>(null);
@@ -69,8 +71,8 @@ export default function MoodDashboard() {
     const { shareWeekCard } = await import("./critter/shareCard");
     const r = await shareWeekCard({ title: t.weekTitle, days: weekCardDays(rows, prefs, lang), lines: weekCardLines(insights) }).catch(() => "cancelled" as const);
     if (r === "cancelled") return;
-    setWeekNote(t[r]);
-    setTimeout(() => setWeekNote(""), 2500);
+    setWeekNote(guest ? `${t[r]} · ${GUEST_UI[lang].shareSave.text}` : t[r]);
+    setTimeout(() => setWeekNote(""), guest ? 5000 : 2500);
   }
 
   return (
@@ -78,6 +80,16 @@ export default function MoodDashboard() {
       <h1 className="text-2xl font-semibold">{t.title}</h1>
 
       {rows && <WeekDiary rows={rows} prefs={prefs} lang={lang} />}
+
+      {guest && (
+        // A guest's history lives on this device's guest account: offer to keep it.
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl bg-indigo-50/80 px-4 py-2.5 text-sm text-slate-700 ring-1 ring-indigo-100">
+          <span className="min-w-0 flex-1">🔒 {GUEST_UI[lang].moodBanner.text}</span>
+          <Link href={signUpHref("/mood")} className="shrink-0 rounded-full bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700">
+            {GUEST_UI[lang].moodBanner.cta}
+          </Link>
+        </div>
+      )}
 
       <section className="space-y-3 rounded-3xl bg-white/90 p-4 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-center justify-between gap-2">

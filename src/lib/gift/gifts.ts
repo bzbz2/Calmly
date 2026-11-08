@@ -4,16 +4,18 @@
 
 import type { Feeling, Lang } from "../critter/catalog";
 import { PHOTOS, type PhotoId } from "../critter/photos";
+import { sceneById, type SceneId } from "../story/scenes";
 import { animalEmoji, animalName, animalOf } from "../personal/animals";
 
 export const GIFT_PHRASES = ["miss", "cheer", "hug", "rest", "birthday", "custom"] as const;
 export type GiftPhrase = (typeof GIFT_PHRASES)[number];
 
-type PhraseInfo = { emoji: string; text: Record<Lang, string>; photos: PhotoId[]; motion: Feeling };
+/** `story`: a drawn story animation shown instead of the photo (its animal names the gift). */
+type PhraseInfo = { emoji: string; text: Record<Lang, string>; photos: PhotoId[]; motion: Feeling; story?: SceneId };
 
 /** First photo is the default; "Another animal" cycles the rest. */
 export const PHRASES: Record<GiftPhrase, PhraseInfo> = {
-  miss: { emoji: "💌", text: { en: "Miss you", zh: "想你了" }, photos: ["husky-pup", "puppy-sand", "redpanda-curious", "persian-white"], motion: "wistful" },
+  miss: { emoji: "💌", text: { en: "Miss you", zh: "想你了" }, photos: ["husky-pup", "puppy-sand", "redpanda-curious", "persian-white"], motion: "wistful", story: "message_arrives" },
   cheer: { emoji: "💪", text: { en: "You've got this", zh: "加油" }, photos: ["corgi-snow", "papillon-run", "sheepdog-run", "meerkat-stare"], motion: "elated" },
   hug: { emoji: "🤗", text: { en: "Hugs", zh: "抱抱" }, photos: ["koala-yawn", "panda-log", "otter-float", "kitten-blanket"], motion: "relaxed" },
   rest: { emoji: "🍵", text: { en: "You've worked so hard", zh: "辛苦了" }, photos: ["capybara-tray", "dog-nap", "fold-eyesclosed", "otter-float"], motion: "relieved" },
@@ -51,9 +53,20 @@ export function giftPhoto(phrase: GiftPhrase, turn = 0): PhotoId {
   return list[((turn % list.length) + list.length) % list.length];
 }
 
+/** The drawn story for a phrase, if it has one. */
+export function giftStory(phrase: unknown): SceneId | undefined {
+  return isGiftPhrase(phrase) ? PHRASES[phrase].story : undefined;
+}
+
+/** The animal the friend sees: the story's character, or the photo's animal. */
+export function giftAnimal(photoId: PhotoId, phrase?: unknown): string {
+  const story = giftStory(phrase);
+  return story ? (sceneById(story)?.character ?? animalOf(photoId)) : animalOf(photoId);
+}
+
 /** "小明送你一只考拉" / "Ming sent you a koala". */
-export function giftHeadline(senderName: string, photoId: PhotoId, lang: Lang): string {
-  const animal = animalOf(photoId);
+export function giftHeadline(senderName: string, photoId: PhotoId, lang: Lang, phrase?: unknown): string {
+  const animal = giftAnimal(photoId, phrase);
   const name = animalName(animal, lang);
   const who = senderName.trim() || (lang === "zh" ? "一位朋友" : "A friend");
   if (lang === "zh") return `${who}送你一只${name}`;
@@ -61,9 +74,9 @@ export function giftHeadline(senderName: string, photoId: PhotoId, lang: Lang): 
 }
 
 /** The full line shown to the friend: "小明送你一只考拉：抱抱 🐨". */
-export function giftLine(g: { senderName: string; photoId: PhotoId; message: string; lang: Lang }): string {
+export function giftLine(g: { senderName: string; photoId: PhotoId; message: string; lang: Lang; phrase?: unknown }): string {
   const sep = g.lang === "zh" ? "：" : ": ";
-  return `${giftHeadline(g.senderName, g.photoId, g.lang)}${sep}${g.message} ${animalEmoji(animalOf(g.photoId))}`;
+  return `${giftHeadline(g.senderName, g.photoId, g.lang, g.phrase)}${sep}${g.message} ${animalEmoji(giftAnimal(g.photoId, g.phrase))}`;
 }
 
 export const GIFTS_PER_DAY = 30;

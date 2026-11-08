@@ -23,6 +23,11 @@ describe("send a buddy", () => {
     expect(giftLine({ senderName: "Ming", photoId: "otter-float", message: "Hugs", lang: "en" })).toBe("Ming sent you an otter: Hugs 🦦");
     expect(giftHeadline("", "koala-yawn", "zh")).toBe("一位朋友送你一只考拉");
   });
+  test("a phrase with a drawn story is named after the story's animal, not the photo", () => {
+    expect(giftLine({ senderName: "小明", photoId: "husky-pup", message: "想你了", lang: "zh", phrase: "miss" })).toBe("小明送你一只企鹅：想你了 🐧");
+    expect(giftHeadline("Ming", "husky-pup", "en", "miss")).toBe("Ming sent you a penguin");
+    expect(giftHeadline("Ming", "koala-yawn", "en", "hug")).toBe("Ming sent you a koala");
+  });
   test("custom text is cleaned: one line, no links, short", () => {
     expect(cleanText("  hi\n\nthere  ", 40)).toBe("hi there");
     expect(cleanText("see https://evil.example/x now", 40)).toBe("see now");

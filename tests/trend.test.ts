@@ -68,10 +68,10 @@ describe("mood weather", () => {
 
 describe("first screen", () => {
   test("greeting and placeholder", () => {
-    expect(welcomeText("Test", "en").title).toBe("Hi Test, How's your day going?");
-    expect(welcomeText("Test", "en").sub).toBe("Tell me how you feel and see who shows up.");
-    expect(welcomeText("Test", "en").placeholder).toBe("Type or tap 🎤 to talk…");
-    expect(welcomeText("", "zh").title).toBe("嗨，今天过得怎么样？");
+    expect(welcomeText("en").title).toBe("How's your day going?");
+    expect(welcomeText("en").sub).toBe("Tell me how you feel and see who shows up.");
+    expect(welcomeText("en").placeholder).toBe("My calendar is attacking me…");
+    expect(welcomeText("zh").title).toBe("今天过得怎么样？");
   });
   test("4 mood chips, each a valid feeling whose text matches it", () => {
     for (const lang of ["en", "zh"] as const) {
@@ -82,6 +82,6 @@ describe("first screen", () => {
         expect(selectMoodAnimation(c.send, { feeling: c.feeling }).feeling).toBe(c.feeling);
       }
     }
-    expect(moodChips("zh").map((c) => c.label)).toEqual(["累", "一般", "不错", "焦虑"]);
+    expect(moodChips("zh").map((c) => c.label)).toEqual(["累坏了", "一般", "还不错", "焦虑"]);
   });
 });

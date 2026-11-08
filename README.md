@@ -11,6 +11,15 @@ All dependencies come from the public npm registry. Do not add private or compan
 4. `bun run dev`
 5. `bun run test` (unit tests, Bun's built-in runner)
 
+## Guest mode and sign-in
+- **No sign-in wall.** `/` is the chat: "How's your day going?", a looping buddy story (`files_double`), the message box and 4 mood chips. The first message quietly creates a **guest account** (Auth.js credentials provider `guest`, `src/auth.ts`), so the buddy, chats and moods are saved like anyone else's. "Log in" is a small link at the top right for returning users.
+- **Limits:** a guest can send 10 messages per 24 hours (`GUEST_DAILY_MESSAGES`, checked in `/api/chat`), and one network can create at most 20 guests a day (salted IP hash, never the IP). Sending a gift needs a real account.
+- **Nudges to sign up** (guests only, `GUEST_UI` in `src/lib/guest.ts`): after the first buddy ("喜欢这只小家伙吗？保存下来，明天还能看到它。"), a banner above the mood chart ("登录后，换手机也不会丢失记录"), after "Share today's me", and when the daily limit is reached. Each comes back to the same chat (`/chat?c=<id>`) after sign-up.
+- **Keeping the data:** signing up as a guest turns the guest account into the real one in place (same id). Logging into an existing account, or Google/Apple with an existing email, moves the guest's chats, moods, corrections, gifts and animal preferences into it in one batch and deletes the guest (`mergeGuestInto`, `src/lib/guest-server.ts`). The guest is read from the session cookie being replaced.
+- **Login page:** Apple, Google, and email + password only. Apple/Google appear when `AUTH_APPLE_ID/SECRET` or `AUTH_GOOGLE_ID/SECRET` are set (disabled placeholders in development).
+- **Gifts:** a friend opens `/g/<token>` with no login, and "Which buddy am I today?" goes straight into a guest chat. Only "Send one back" asks to sign up, then returns to `/gift?reply=<token>`; a draft started as a guest is kept across sign-up.
+- Migration: `drizzle/0005_guests.sql` (nullable email and password, `is_guest`, `ip_hash`).
+
 ## Agent graph (`src/lib/agent/graph.ts`)
 START → crisisCheck → moodExtract → (high risk ? crisisResponse : responder ⇄ tools) → updateMemory → END
 - Tools: tarot, astrology (sun sign), food therapy, breathing/grounding, CBT reframing.

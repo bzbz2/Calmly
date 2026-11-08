@@ -6,7 +6,10 @@ import { sessionMood, sessionSelection, type SessionMessage } from "@/lib/critte
 import { nextPhoto, photo, photoSrc, needsCredit, type PhotoId } from "@/lib/critter/photos";
 import { preferredPhoto, type AnimalPrefs, type PrefSignal } from "@/lib/personal/animals";
 import { isLight } from "@/lib/personal/moods";
+import { WELCOME_SCENE } from "@/lib/personal/welcome";
+import { sceneById } from "@/lib/story/scenes";
 import Link from "next/link";
+import StoryCard from "../story/StoryCard";
 import { CritterStage, motionOf } from "./CritterStage";
 import { FeelingPicker } from "./FeelingPicker";
 
@@ -35,12 +38,14 @@ type Props = {
   onPref?: (s: PrefSignal) => void;
   onCorrect?: (sourceIndex: number, feeling: Feeling) => void;
   onState?: (card: BuddyCard) => void;
+  /** Called after the card was shared or saved (a guest is then asked to sign up). */
+  onShared?: () => void;
 };
 
 /** What the card currently shows (photo may differ from the default after "Another photo"). */
 export type BuddyCard = { photoId: PhotoId; label: string; caption: string; feeling: Feeling };
 
-export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect, onState }: Props) {
+export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect, onState, onShared }: Props) {
   const [variant, setVariant] = useState(0);
   const [photoId, setPhotoId] = useState<PhotoId | null>(null);
   const [playKey, setPlayKey] = useState(0);
@@ -82,7 +87,10 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect, onState }
     const { shareCard } = await import("./shareCard");
     try {
       const r = await shareCard({ photoId: pid, label: sel.feelingLabel, caption: sel.caption, feeling: sel.feeling });
-      if (r !== "cancelled") setNote(r === "shared" ? t.shared : t.saved);
+      if (r !== "cancelled") {
+        setNote(r === "shared" ? t.shared : t.saved);
+        onShared?.();
+      }
     } catch {
       setNote("…");
     }
@@ -156,14 +164,14 @@ export function SessionBuddy({ msgs, layout, prefs, onPref, onCorrect, onState }
 }
 
 /**
- * Placeholder buddy on the first screen of a new chat, so there's a face before the
- * user types. A calm photo of their favourite animal; it's replaced by their mood buddy
- * as soon as they share how they feel.
+ * The looping story on the first screen, so a new visitor sees at a glance what they'll
+ * get: a hamster hugs a file → the files double → it keels over, with its caption. It's
+ * replaced by their own mood buddy as soon as they share how they feel.
  */
-export function WelcomeBuddy({ lang, label, caption, prefs }: { lang: Lang; label: string; caption: string; prefs?: AnimalPrefs }) {
+export function WelcomeBuddy({ lang, label }: { lang: Lang; label: string }) {
   return (
-    <div className="cr-enter mx-auto w-44 sm:w-52">
-      <CritterStage sceneId="feel_calm" photoId={preferredPhoto("calm", prefs)} caption={caption} label={label} lang={lang} playKey={0} paused={false} />
+    <div className="cr-enter mx-auto w-48 sm:w-56">
+      <StoryCard sceneId={WELCOME_SCENE} label={label} caption={sceneById(WELCOME_SCENE)?.caption[lang] ?? ""} loop={1400} replayLabel={lang === "zh" ? "再看一次" : "Replay"} />
     </div>
   );
 }

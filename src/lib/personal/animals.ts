@@ -34,6 +34,7 @@ const ANIMAL_INFO: Record<string, { zh: string; emoji: string }> = {
   "Pallas's cat": { zh: "兔狲", emoji: "🐱" },
   meerkat: { zh: "狐獴", emoji: "🐾" },
   otter: { zh: "水獭", emoji: "🦦" },
+  penguin: { zh: "企鹅", emoji: "🐧" },
 };
 
 /** An animal's name in the user's language ("考拉" / "koala"). */

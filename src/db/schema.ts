@@ -1,10 +1,13 @@
-import { pgTable, text, timestamp, integer, jsonb, uuid, real, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb, uuid, real, index, boolean } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
+  // Guests (made on the first message, no sign-up) have no email or password yet.
+  email: text("email").unique(),
   name: text("name"),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // null for guests and Google/Apple sign-ins
+  isGuest: boolean("is_guest").notNull().default(false),
+  ipHash: text("ip_hash"), // guests only: salted hash of the creating IP, to cap guest sign-ups
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

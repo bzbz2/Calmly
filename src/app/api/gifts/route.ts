@@ -20,6 +20,8 @@ export async function POST(req: Request) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Sending needs a real account (the friend sees your name); guests are asked to sign up.
+  if (session.user.guest) return NextResponse.json({ error: "account" }, { status: 403 });
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid gift" }, { status: 400 });
   const d = parsed.data;

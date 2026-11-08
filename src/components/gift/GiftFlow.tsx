@@ -2,14 +2,22 @@
 import { useEffect, useState } from "react";
 import type { Lang } from "@/lib/critter/catalog";
 import { photo, photoSrc, type PhotoId } from "@/lib/critter/photos";
-import { cleanText, giftHeadline, giftLine, giftMessage, giftPhoto, GIFT_PHRASES, GIFT_UI, MAX_CUSTOM, MAX_NAME, PHRASES, type GiftPhrase } from "@/lib/gift/gifts";
+import { cleanText, giftHeadline, giftLine, giftMessage, giftPhoto, giftStory, GIFT_PHRASES, GIFT_UI, MAX_CUSTOM, MAX_NAME, PHRASES, type GiftPhrase } from "@/lib/gift/gifts";
+import { GUEST_UI, signUpHref } from "@/lib/guest";
 import { CritterStage } from "../critter/CritterStage";
+import StoryCard from "../story/StoryCard";
 
 // Send a buddy (送一只): pick a phrase → Calmly pairs an animal → get a link for the friend.
+// Sending needs an account. A guest can still pick everything; "Sign up to send" keeps
+// their choices on this tab, and sign-up brings them straight back here to finish.
+
+/** Draft kept across sign-up (this tab only). */
+const DRAFT = "calmly:giftDraft";
+type Draft = { phrase: GiftPhrase; custom: string; toName: string; turn: number; reply: string | null };
 
 type Sent = { token: string; toName: string | null; message: string; photoId: PhotoId; createdAt: string; openedAt: string | null };
 
-export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lang: Lang; myName: string; replyTo: { token: string; name: string } | null; initialPhrase?: GiftPhrase }) {
+export default function GiftFlow({ lang, myName, replyTo, initialPhrase, canSend }: { lang: Lang; myName: string; replyTo: { token: string; name: string } | null; initialPhrase?: GiftPhrase; canSend: boolean }) {
   const t = GIFT_UI[lang];
   const [phrase, setPhrase] = useState<GiftPhrase>(initialPhrase ?? "hug");
   const [custom, setCustom] = useState("");
@@ -22,11 +30,26 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
   const [sent, setSent] = useState<Sent[]>([]);
 
   const loadSent = () => fetch("/api/gifts").then((r) => (r.ok ? r.json() : null)).then((d) => d && setSent(d.gifts ?? [])).catch(() => {});
-  useEffect(() => { loadSent(); }, []);
+  useEffect(() => {
+    if (canSend) loadSent();
+    // Back from sign-up: pick up exactly where they left off.
+    try {
+      const d = JSON.parse(sessionStorage.getItem(DRAFT) ?? "null") as Draft | null;
+      if (d && d.reply === (replyTo?.token ?? null) && d.phrase in PHRASES) {
+        setPhrase(d.phrase);
+        setCustom(d.custom);
+        setToName(d.toName);
+        setTurn(d.turn);
+      }
+      if (canSend) sessionStorage.removeItem(DRAFT);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
+  }, []);
 
   const photoId = giftPhoto(phrase, turn);
   const message = giftMessage(phrase, lang, custom);
   const to = cleanText(toName, MAX_NAME);
+  const story = giftStory(phrase);
 
   function pick(p: GiftPhrase) {
     setPhrase(p);
@@ -34,7 +57,16 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
     setError("");
   }
 
+  /** A guest: save the draft and go sign up; they come back to this page to send it. */
+  function signUpToSend() {
+    if (!message) return setError(t.empty);
+    const d: Draft = { phrase, custom, toName, turn, reply: replyTo?.token ?? null };
+    sessionStorage.setItem(DRAFT, JSON.stringify(d));
+    window.location.href = signUpHref(window.location.pathname + window.location.search);
+  }
+
   async function create() {
+    if (!canSend) return signUpToSend();
     if (!message) return setError(t.empty);
     setBusy(true);
     setError("");
@@ -45,6 +77,7 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
     }).catch(() => null);
     setBusy(false);
     const d = r ? await r.json().catch(() => ({})) : {};
+    if (r?.status === 403 && d.error === "account") return signUpToSend();
     if (!r?.ok) return setError(d.error === "limit" ? t.limit : d.error === "empty" ? t.empty : "Something went wrong.");
     setLink(`${window.location.origin}${d.path}`);
     loadSent();
@@ -59,7 +92,7 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
 
   async function share() {
     if (!link) return;
-    const text = giftLine({ senderName: myName, photoId, message, lang });
+    const text = giftLine({ senderName: myName, photoId, message, lang, phrase });
     if (navigator.share) await navigator.share({ title: "Calmly", text, url: link }).catch(() => {});
     else copy();
   }
@@ -79,16 +112,20 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
       </div>
 
       <div className="mx-auto w-60">
+        {story ? (
+          <StoryCard key={phrase} sceneId={story} label={giftHeadline(myName, photoId, lang, phrase)} caption={message || t.customPh} loop={1600} />
+        ) : (
         <CritterStage
           key={`${phrase}-${turn}`}
           sceneId={`feel_${PHRASES[phrase].motion}`}
           photoId={photoId}
-          label={giftHeadline(myName, photoId, lang)}
+          label={giftHeadline(myName, photoId, lang, phrase)}
           caption={message || t.customPh}
           lang={lang}
           playKey={0}
           paused={false}
         />
+        )}
       </div>
 
       {!link ? (
@@ -123,12 +160,15 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase }: { lan
             <input value={toName} onChange={(e) => setToName(e.target.value)} maxLength={MAX_NAME} placeholder={t.toPh} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" />
           </label>
           {error && <p role="alert" className="text-sm text-rose-600">{error}</p>}
+          {!canSend && <p className="text-center text-xs text-slate-500">{GUEST_UI[lang].giftNeedsAccount.text}</p>}
           <div className="flex gap-2">
-            <button type="button" onClick={() => setTurn((n) => n + 1)} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              🔀 {t.another}
-            </button>
+            {!story && (
+              <button type="button" onClick={() => setTurn((n) => n + 1)} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                🔀 {t.another}
+              </button>
+            )}
             <button type="button" onClick={create} disabled={busy} className="flex-1 rounded-xl bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">
-              {busy ? t.creating : t.create}
+              {busy ? t.creating : canSend ? t.create : GUEST_UI[lang].giftNeedsAccount.cta}
             </button>
           </div>
         </div>

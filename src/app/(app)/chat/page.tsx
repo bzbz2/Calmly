@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import Chat from "@/components/Chat";
+import { accountOf } from "@/lib/account";
 
 export default async function ChatPage() {
-  const session = await auth();
-  return <Chat name={session?.user?.name ?? ""} />;
+  return <Chat account={accountOf(await auth())} />;
 }

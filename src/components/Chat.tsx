@@ -1,7 +1,12 @@
 "use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import type { Feeling, Lang } from "@/lib/critter/catalog";
 import { detectLang } from "@/lib/critter/match";
+import type { Account } from "@/lib/account";
+import { GUEST_UI, signUpHref } from "@/lib/guest";
 import { sessionMood } from "@/lib/critter/session";
 import { preferredPhoto, type AnimalPrefs, type PrefSignal } from "@/lib/personal/animals";
 import { buildCheckIn, type LastMood } from "@/lib/personal/checkin";
@@ -22,6 +27,7 @@ type Msg = { id?: string; key?: number; role: "user" | "assistant"; content: str
 type Conv = { id: string; title: string };
 type Mood = { label: string; score: number; stress: number };
 type Insights = { moods: MoodRow[]; last: LastMood | null; animalPrefs: AnimalPrefs };
+
 
 /** Chats shown in the sidebar by default. Older ones stay saved and one tap away. */
 const RECENT_CHATS = 3;
@@ -54,7 +60,17 @@ const SHARE_UI: Record<Lang, { share: string; shared: string; downloaded: string
 const postJson = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-export default function Chat({ name }: { name: string }) {
+/** Guest prompts: dismissed ones stay dismissed on this device. */
+const KEEP_BUDDY_SEEN = "calmly:keepBuddySeen";
+
+export default function Chat({ account: initialAccount }: { account: Account }) {
+  const router = useRouter();
+  // "none" until the first message, which quietly makes a guest account.
+  const [account, setAccount] = useState<Account>(initialAccount);
+  const [guestLeft, setGuestLeft] = useState<number | null>(null);
+  const [limitHit, setLimitHit] = useState(false);
+  const [keepBuddySeen, setKeepBuddySeen] = useState(true);
+  const [sharePrompt, setSharePrompt] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [convs, setConvs] = useState<Conv[]>([]);
   const [showAllChats, setShowAllChats] = useState(false);
@@ -80,7 +96,17 @@ export default function Chat({ name }: { name: string }) {
   const refreshInsights = () =>
     fetch("/api/insights").then((r) => (r.ok ? r.json() : null)).then((d) => d && setInsights(d)).catch(() => {});
 
-  useEffect(() => { refreshConvs(); refreshInsights(); setNavLang(navigator.language); }, []);
+  useEffect(() => {
+    setNavLang(navigator.language);
+    setKeepBuddySeen(localStorage.getItem(KEEP_BUDDY_SEEN) === "1");
+    if (initialAccount === "none") return; // nothing saved yet
+    refreshConvs();
+    refreshInsights();
+    // `?c=<id>` reopens a chat, e.g. coming back from sign-up.
+    const c = new URLSearchParams(window.location.search).get("c");
+    if (c && /^[0-9a-f-]{36}$/i.test(c)) open(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on load
+  }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, busy]);
 
   const prefs = insights?.animalPrefs;
@@ -95,7 +121,8 @@ export default function Chat({ name }: { name: string }) {
   const lastUser = [...msgs].reverse().find((m) => m.role === "user")?.content;
   const voiceLang: Lang = defaultVoiceLang(lastUser ? detectLang(lastUser) : insights?.last?.lang, navLang);
   const v = VOICE_UI[voiceLang];
-  const w = welcomeText(name, voiceLang);
+  const w = welcomeText(voiceLang);
+  const g = GUEST_UI[voiceLang];
 
   /**
    * Send one message; resolves to Calmly's reply (or null on error / chat switch).
@@ -109,10 +136,27 @@ export default function Chat({ name }: { name: string }) {
     setMsgs((m) => [...m, { key, role: "user", content: text, feeling: opts.feeling }]);
     setBusy(true);
     const view = viewRef.current;
+    let joined = false;
     try {
+      // First message from a new visitor: make their guest account first, no form.
+      if (account === "none") {
+        const res = await signIn("guest", { redirect: false });
+        if (res?.error) throw new Error(voiceLang === "zh" ? "现在有点忙，请稍后再试。" : "We're a little busy right now. Please try again soon.");
+        setAccount("guest");
+        joined = true;
+      }
       const r = await postJson("/api/chat", { text, conversationId: convId, tzOffset: new Date().getTimezoneOffset(), feeling: opts.feeling });
       const d = await r.json();
+      if (r.status === 429 && d.limit) {
+        // Out of free messages: take the message back so it isn't lost, and offer sign-up.
+        setMsgs((m) => m.filter((x) => x.key !== key));
+        setInput(text);
+        setGuestLeft(0);
+        setLimitHit(true);
+        return null;
+      }
       if (!r.ok) throw new Error(d.error ?? "Failed");
+      if (typeof d.guestLeft === "number") setGuestLeft(d.guestLeft);
       if (!convId) refreshConvs(); // the new chat shows up in history either way
       const fix = pendingFix.current.get(key);
       pendingFix.current.delete(key);
@@ -125,6 +169,7 @@ export default function Chat({ name }: { name: string }) {
       ]);
       if (d.mood) setLastMood(d.mood);
       if (!convId) setConvId(d.conversationId);
+      if (joined) router.refresh(); // the header now shows Chat / My mood / Send a buddy
       return d.reply as string;
     } catch (err) {
       if (view === viewRef.current) setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -147,6 +192,16 @@ export default function Chat({ name }: { name: string }) {
     else if (m.key !== undefined) pendingFix.current.set(m.key, feeling);
   }
 
+  /** After sharing, a guest is asked to sign up so today's card is kept. */
+  function onShared() {
+    if (account === "guest") setSharePrompt(true);
+  }
+
+  function dismissKeepBuddy() {
+    localStorage.setItem(KEEP_BUDDY_SEEN, "1");
+    setKeepBuddySeen(true);
+  }
+
   function sendPref(s: PrefSignal) {
     postJson("/api/prefs", s).catch(() => {});
   }
@@ -160,6 +215,7 @@ export default function Chat({ name }: { name: string }) {
     const r = await shareCard(card).catch(() => "cancelled" as const);
     if (r === "cancelled") return;
     setShareNote(SHARE_UI[sel.lang][r]);
+    onShared();
     setTimeout(() => setShareNote(""), 2500);
   }
 
@@ -172,6 +228,7 @@ export default function Chat({ name }: { name: string }) {
     setBusy(false);
     setLastMood(null);
     setError("");
+    setSharePrompt(false);
   }
 
   async function open(id: string) {
@@ -215,8 +272,72 @@ export default function Chat({ name }: { name: string }) {
 
   const chip = "rounded-full bg-white px-3 py-1 text-sm text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-50 disabled:opacity-50";
 
+  // The message box: centred under the welcome story on a new chat, docked at the bottom after.
+  const composer = (cls: string) => (
+    <form onSubmit={onSubmit} className={`flex items-center gap-2 ${cls}`}>
+      {!voiceOn ? (
+        <button
+          type="button"
+          onClick={voice.start}
+          disabled={!voice.supported.stt}
+          title={voice.supported.stt ? v.talk : v.unsupported}
+          aria-label={v.talk}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-40"
+        >
+          <MicIcon />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={voice.phase === "speaking" ? voice.skip : undefined}
+          aria-live="polite"
+          aria-label={v[voice.phase]}
+          title={voice.phase === "speaking" ? v.skip : undefined}
+          className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm ${voice.phase === "listening" ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-700"}`}
+        >
+          {voice.phase === "listening" && <span className="absolute inset-0 animate-ping rounded-full bg-rose-200/60" aria-hidden="true" />}
+          <MicIcon className="relative h-5 w-5" />
+          <span className="relative hidden sm:inline">{v[voice.phase]}</span>
+        </button>
+      )}
+      <input
+        value={voice.phase === "listening" && voice.interim ? voice.interim : input}
+        onChange={(e) => setInput(e.target.value)}
+        readOnly={voice.phase === "listening"}
+        placeholder={voice.phase === "listening" ? v.listening : w.placeholder}
+        aria-label="Message"
+        className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2"
+      />
+      {voice.phase === "listening" && (
+        <button type="button" onClick={voice.finish} className="shrink-0 rounded-xl bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700">
+          {v.done}
+        </button>
+      )}
+      {voiceOn && (
+        <button type="button" onClick={voice.end} className="shrink-0 rounded-xl bg-rose-500 px-3 py-2 text-sm text-white hover:bg-rose-600">
+          {v.end}
+        </button>
+      )}
+      {!voiceOn && (
+        <button disabled={busy || !input.trim()} className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50">{voiceLang === "zh" ? "发送" : "Send"}</button>
+      )}
+    </form>
+  );
+
+  const prompt = (p: { text: string; cta: string }, back: string, onLater?: () => void, tone = "bg-indigo-50/80 ring-indigo-100") => (
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl px-3 py-2 text-sm text-slate-700 ring-1 ${tone}`} lang={voiceLang}>
+      <span className="min-w-0 flex-1">{p.text}</span>
+      <Link href={signUpHref(back)} className="shrink-0 rounded-full bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700">{p.cta}</Link>
+      {onLater && <button type="button" onClick={onLater} className="shrink-0 text-xs text-slate-500 hover:underline">{g.later}</button>}
+    </div>
+  );
+  // Where sign-up brings a guest back to: this chat.
+  const back = convId ? `/chat?c=${convId}` : "/chat";
+  const isGuest = account === "guest";
+
   return (
     <div className="flex h-[calc(100vh-110px)] gap-4">
+      {account !== "none" && (
       <aside className="hidden w-56 shrink-0 flex-col gap-2 md:flex">
         <button onClick={newChat} className="rounded-lg bg-indigo-600 py-2 text-sm text-white hover:bg-indigo-700">+ New chat</button>
         <nav aria-label="Chat history" className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -242,29 +363,32 @@ export default function Chat({ name }: { name: string }) {
             </button>
           )}
         </nav>
-        <SessionBuddy key={moodKey} msgs={msgs} layout="sidebar" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} />
+        <SessionBuddy key={moodKey} msgs={msgs} layout="sidebar" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} onShared={onShared} />
       </aside>
+      )}
 
       <section className="flex min-w-0 flex-1 flex-col rounded-2xl bg-white/80 shadow-sm ring-1 ring-slate-200">
         {mood && (
           <div className="px-3 pt-3 md:hidden">
-            <SessionBuddy key={moodKey} msgs={msgs} layout="inline" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} />
+            <SessionBuddy key={moodKey} msgs={msgs} layout="inline" prefs={prefs} onPref={sendPref} onCorrect={correctFeeling} onState={(c) => (buddyCard.current = c)} onShared={onShared} />
           </div>
         )}
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {msgs.length === 0 && (
-            <div className="mx-auto mt-6 max-w-md space-y-4 text-center" lang={voiceLang}>
-              <WelcomeBuddy lang={voiceLang} label={w.buddyLabel} caption={w.buddyCaption} prefs={prefs} />
+            <div className="mx-auto mt-6 max-w-lg space-y-4 text-center" lang={voiceLang}>
               <div className="space-y-1.5">
                 <h1 className="text-2xl font-semibold text-slate-800">{w.title}</h1>
                 <p className="text-sm text-slate-500">{w.sub}</p>
               </div>
+              <WelcomeBuddy lang={voiceLang} label={w.buddyLabel} />
+              {composer("")}
+              {limitHit && prompt(g.limitReached, back)}
               <div className="flex flex-wrap justify-center gap-2" aria-label={w.sub}>
                 {moodChips(voiceLang).map((c) => (
                   <button
                     key={c.id}
                     type="button"
-                    disabled={busy}
+                    disabled={busy || limitHit}
                     onClick={() => sendText(c.send, { feeling: c.feeling })}
                     className="rounded-full bg-white px-4 py-1.5 text-sm text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-indigo-50 hover:ring-indigo-200 disabled:opacity-50"
                   >
@@ -313,6 +437,9 @@ export default function Chat({ name }: { name: string }) {
               {shareNote && <span role="status" className="text-xs text-slate-500">{shareNote}</span>}
             </div>
           )}
+          {isGuest && sharePrompt && prompt(g.shareSave, back, () => setSharePrompt(false))}
+          {/* First time a guest meets a buddy: offer to keep it. */}
+          {isGuest && !keepBuddySeen && !sharePrompt && mood && last?.role === "assistant" && !busy && prompt(g.keepBuddy, back, dismissKeepBuddy, "bg-amber-50/80 ring-amber-100")}
           {replies.length > 0 && (
             <div className="flex flex-wrap gap-1.5" aria-label="Quick replies" lang={mood?.selection.lang}>
               {replies.map((q) => (
@@ -322,6 +449,7 @@ export default function Chat({ name }: { name: string }) {
           )}
           {busy && <div className="text-sm text-slate-400">Calmly is thinking…</div>}
           {error && <div role="alert" className="text-sm text-red-600">{error}</div>}
+          {msgs.length > 0 && limitHit && prompt(g.limitReached, back)}
           <div ref={endRef} />
         </div>
         {lastMood && (
@@ -336,54 +464,12 @@ export default function Chat({ name }: { name: string }) {
           </p>
         )}
         {voice.notice && <p role="status" className="mx-4 mb-1 text-xs text-indigo-700">{voice.notice}</p>}
-        <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-slate-200 p-3">
-          {!voiceOn ? (
-            <button
-              type="button"
-              onClick={voice.start}
-              disabled={!voice.supported.stt}
-              title={voice.supported.stt ? v.talk : v.unsupported}
-              aria-label={v.talk}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-40"
-            >
-              <MicIcon />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={voice.phase === "speaking" ? voice.skip : undefined}
-              aria-live="polite"
-              aria-label={v[voice.phase]}
-              title={voice.phase === "speaking" ? v.skip : undefined}
-              className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm ${voice.phase === "listening" ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-700"}`}
-            >
-              {voice.phase === "listening" && <span className="absolute inset-0 animate-ping rounded-full bg-rose-200/60" aria-hidden="true" />}
-              <MicIcon className="relative h-5 w-5" />
-              <span className="relative hidden sm:inline">{v[voice.phase]}</span>
-            </button>
-          )}
-          <input
-            value={voice.phase === "listening" && voice.interim ? voice.interim : input}
-            onChange={(e) => setInput(e.target.value)}
-            readOnly={voice.phase === "listening"}
-            placeholder={voice.phase === "listening" ? v.listening : w.placeholder}
-            aria-label="Message"
-            className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2"
-          />
-          {voice.phase === "listening" && (
-            <button type="button" onClick={voice.finish} className="shrink-0 rounded-xl bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700">
-              {v.done}
-            </button>
-          )}
-          {voiceOn && (
-            <button type="button" onClick={voice.end} className="shrink-0 rounded-xl bg-rose-500 px-3 py-2 text-sm text-white hover:bg-rose-600">
-              {v.end}
-            </button>
-          )}
-          {!voiceOn && (
-            <button disabled={busy || !input.trim()} className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50">Send</button>
-          )}
-        </form>
+        {isGuest && guestLeft !== null && guestLeft > 0 && guestLeft <= 3 && (
+          <p className="mx-4 mb-1 text-xs text-slate-500" lang={voiceLang}>
+            {g.limit(guestLeft)} <Link href={signUpHref(back)} className="text-indigo-600 underline">{g.shareSave.cta}</Link>
+          </p>
+        )}
+        {msgs.length > 0 && composer("border-t border-slate-200 p-3")}
       </section>
     </div>
   );
