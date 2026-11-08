@@ -6,6 +6,7 @@ import { cleanText, giftHeadline, giftLine, giftMessage, giftPhoto, giftStory, G
 import { GUEST_UI, signUpHref } from "@/lib/guest";
 import { CritterStage } from "../critter/CritterStage";
 import StoryCard from "../story/StoryCard";
+import ShareMenu from "./ShareMenu";
 
 // Send a buddy (送一只): pick a phrase → Calmly pairs an animal → get a link for the friend.
 // Sending needs an account. A guest can still pick everything; "Sign up to send" keeps
@@ -88,13 +89,6 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase, canSend
     await navigator.clipboard?.writeText(link).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function share() {
-    if (!link) return;
-    const text = giftLine({ senderName: myName, photoId, message, lang, phrase });
-    if (navigator.share) await navigator.share({ title: "Calmly", text, url: link }).catch(() => {});
-    else copy();
   }
 
   function again() {
@@ -180,7 +174,7 @@ export default function GiftFlow({ lang, myName, replyTo, initialPhrase, canSend
             <button type="button" onClick={copy} className="shrink-0 rounded-lg bg-slate-800 px-3 py-2 text-sm text-white hover:bg-slate-700">{copied ? t.copied : t.copy}</button>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={share} className="flex-1 rounded-xl bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{t.share}</button>
+            <ShareMenu lang={lang} text={giftLine({ senderName: myName, photoId, message, lang, phrase })} url={link} onCopy={copy} />
             <button type="button" onClick={again} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">{t.again}</button>
           </div>
         </div>
