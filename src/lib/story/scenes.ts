@@ -45,7 +45,7 @@ export const STORY_SCENES = [
   s({
     id: "one_more_meeting", character: "dog", valence: "negative", feelings: ["tired", "overwhelmed", "bored"], triggers: ["meetings"], styles: ["rant", "deadpan"], durationMs: 2500,
     use: "Dog puts on headphones for a meeting; another meeting notification pops up; it slowly pulls the headphones over its eyes. Meeting fatigue.",
-    caption: { en: "One more meeting and I'm done.", zh: "再开一个会我就没了。" },
+    caption: { en: "One more meeting? My brain says no.", zh: "再开一个会，脑子要罢工了。" },
   }),
   // B. Annoyed / speechless.
   s({
@@ -93,7 +93,7 @@ export const STORY_SCENES = [
   s({
     id: "email_close", character: "cat", valence: "negative", feelings: ["overwhelmed", "anxious", "shocked"], triggers: ["email"], styles: ["deadpan", "anxious_spiral", "self_deprecating"], durationMs: 2300,
     use: "Cat tears open one envelope and a flood of emails shoots out and rains down until the cat is buried under a heap of mail, only its ears sticking out. Opened one email and now overwhelmed.",
-    caption: { en: "I opened one email. Big mistake.", zh: "就打开了一封邮件，然后我就崩了。" },
+    caption: { en: "I opened one email. Big mistake.", zh: "就打开了一封邮件，然后被淹没了。" },
   }),
   // E. Tiny wins.
   s({
@@ -114,8 +114,8 @@ export const STORY_SCENES = [
   // Extra stories from the brief.
   s({
     id: "files_double", character: "hamster", valence: "negative", feelings: ["overwhelmed", "indignant", "wronged", "tired", "furious"], triggers: ["workload", "people"], styles: ["rant", "self_deprecating"], durationMs: 2400,
-    use: "Hamster balances a pile of papers on its head; a second pile thumps down and the tower wobbles; it looks at the viewer, sweating and trembling, then the pile squashes it flat into a pancake. Work dumped on me, 'I can't take this anymore'.",
-    caption: { en: "I can't take this anymore.", zh: "我真的受够了。" },
+    use: "Hamster balances a pile of papers on its head; a second pile thumps down and the tower wobbles; it looks at the viewer, sweating and trembling, then the pile squashes it flat into a pancake. Work dumped on me, too many files today.",
+    caption: { en: "Too many files today 🫠", zh: "今天的文件也太多了吧 🫠" },
   }),
   s({
     id: "penguin_hug", character: "penguin", valence: "negative", feelings: ["sad", "lonely", "wronged", "forlorn", "dejected", "regret"], triggers: ["people", "other"], styles: ["quiet_sad", "sincere"], durationMs: 2200,

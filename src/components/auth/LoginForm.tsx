@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AuthBrand from "./AuthBrand";
 import { safeNext } from "@/lib/safeNext";
 import { signIn } from "next-auth/react";
 import OAuthButtons, { type OAuthAvailable } from "./OAuthButtons";
@@ -35,6 +36,7 @@ export default function LoginForm({ oauth }: { oauth: OAuthAvailable }) {
 
   return (
     <main className="mx-auto max-w-sm px-6 py-24">
+      <AuthBrand />
       <h1 className="mb-6 text-2xl font-semibold">Welcome back 🌿</h1>
       <OAuthButtons available={oauth} />
       <form onSubmit={onSubmit} method="post" className="mt-1 flex flex-col gap-3">

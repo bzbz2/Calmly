@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AuthBrand from "./AuthBrand";
 import { signIn } from "next-auth/react";
 import { isValidEmail, normalizeEmail } from "@/lib/auth/email";
 import { safeNext } from "@/lib/safeNext";
@@ -91,6 +92,7 @@ export default function ForgotPasswordForm() {
 
   return (
     <main className="mx-auto max-w-sm px-6 py-24">
+      <AuthBrand />
       <h1 className="mb-2 text-2xl font-semibold">Reset your password 🌿</h1>
       {step === "email" ? (
         <form
