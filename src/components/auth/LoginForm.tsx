@@ -12,6 +12,16 @@ export default function LoginForm({ oauth }: { oauth: OAuthAvailable }) {
   const [q, setQ] = useState("");
   useEffect(() => setQ(window.location.search), []);
 
+  /** "Forgot password?" carries over the email typed so far (and ?next=). */
+  function forgot(e: React.MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+    const typed = (e.currentTarget.closest("form")?.elements.namedItem("email") as HTMLInputElement | null)?.value.trim();
+    if (typed) params.set("email", typed);
+    const qs = params.toString();
+    window.location.href = `/forgot-password${qs ? `?${qs}` : ""}`;
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -30,6 +40,9 @@ export default function LoginForm({ oauth }: { oauth: OAuthAvailable }) {
       <form onSubmit={onSubmit} method="post" className="mt-1 flex flex-col gap-3">
         <input name="email" type="email" required placeholder="Email" className="rounded-lg border border-slate-300 bg-white px-3 py-2" />
         <input name="password" type="password" required minLength={8} placeholder="Password" className="rounded-lg border border-slate-300 bg-white px-3 py-2" />
+        <a href={`/forgot-password${q}`} onClick={forgot} className="-mt-1 self-end text-sm text-indigo-600 hover:underline">
+          Forgot password?
+        </a>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button disabled={busy} className="rounded-lg bg-indigo-600 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">{busy ? "Signing in…" : "Log in"}</button>
       </form>

@@ -99,3 +99,22 @@ export const gifts = pgTable(
   },
   (t) => [index("gift_sender_idx").on(t.senderId, t.createdAt)],
 );
+
+/**
+ * One-time codes for "Forgot password". Only a keyed hash of the code is stored; a
+ * code lasts 5 minutes, allows a few wrong tries, and is marked used once it works.
+ */
+export const passwordResetCodes = pgTable(
+  "password_reset_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("reset_email_idx").on(t.email, t.createdAt)],
+);

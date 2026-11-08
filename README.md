@@ -20,6 +20,13 @@ All dependencies come from the public npm registry. Do not add private or compan
 - **Gifts:** a friend opens `/g/<token>` with no login, and "Which buddy am I today?" goes straight into a guest chat. Only "Send one back" asks to sign up, then returns to `/gift?reply=<token>`; a draft started as a guest is kept across sign-up.
 - Migration: `drizzle/0005_guests.sql` (nullable email and password, `is_guest`, `ip_hash`).
 
+## Forgot password (email code)
+- **Flow:** "Forgot password?" under the login fields → `/forgot-password` → enter email → a 6-digit code is emailed → enter the code and a new password → signed in and taken back to `?next=`.
+- **Rules** (`src/lib/auth/otp.ts`, unit-tested): codes expire after **5 minutes**, allow 5 wrong tries, work once, and a new code replaces the old one. One code per minute and 5 per hour per email. Only an HMAC of the code (keyed with `AUTH_SECRET`, tied to the email) is stored in `password_reset_codes` (`drizzle/0006_password_reset.sql`). Emails are checked (`isValidEmail`) in the browser and on the server. An email with no account gets the same answer as one with an account, so the form can't be used to find out who's registered.
+- **Sending** (`src/lib/auth/smtp.ts`): a small SMTP client on Node's `net`/`tls`, no packages. Uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`; STARTTLS is required before signing in (port 465 = TLS from the start). 10s to connect, 20s overall. A failed send removes the code and returns a clear message by failure type (can't reach server, sign-in rejected, address rejected, busy, not configured); details go to the server log.
+- **Local testing on a network that blocks SMTP:** start the dev server with `DEV_LOG_RESET_CODES=1 bun run dev` and the code is printed in the server log instead of emailed. Ignored in production.
+- Tests: `tests/password-reset.test.ts` includes a full STARTTLS send against a local fake server (`tests/fixtures/fake-smtp-server.mjs`, run with Node).
+
 ## Agent graph (`src/lib/agent/graph.ts`)
 START → crisisCheck → moodExtract → (high risk ? crisisResponse : responder ⇄ tools) → updateMemory → END
 - Tools: tarot, astrology (sun sign), food therapy, breathing/grounding, CBT reframing.
